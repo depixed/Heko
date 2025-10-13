@@ -51,8 +51,27 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       if (storedUser) setUser(JSON.parse(storedUser));
       if (storedToken) setToken(storedToken);
-      if (storedWallet) setWallet(JSON.parse(storedWallet));
-      if (storedReferralStats) setReferralStats(JSON.parse(storedReferralStats));
+      
+      if (storedWallet) {
+        setWallet(JSON.parse(storedWallet));
+      } else {
+        const initialWallet = {
+          virtualBalance: 4175,
+          actualBalance: 555,
+          transactions: MOCK_WALLET_TRANSACTIONS,
+        };
+        setWallet(initialWallet);
+        await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(initialWallet));
+      }
+      
+      if (storedReferralStats) {
+        setReferralStats(JSON.parse(storedReferralStats));
+      } else {
+        const initialStats = MOCK_REFERRAL_STATS;
+        setReferralStats(initialStats);
+        await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(initialStats));
+      }
+      
       if (storedAddresses) setAddresses(JSON.parse(storedAddresses));
       if (storedCart) setCart(JSON.parse(storedCart));
     } catch (error) {
