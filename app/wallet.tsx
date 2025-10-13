@@ -266,10 +266,17 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.transactionsList}>
-          {Object.entries(groupedByDate).map(([date, groups]) => (
-            <View key={date} style={styles.dateGroup}>
-              <Text style={styles.dateHeader}>{date}</Text>
-              {groups.map((group, idx) => {
+          {Object.keys(groupedByDate).length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No transactions yet</Text>
+            </View>
+          ) : (
+            Object.keys(groupedByDate).map((date) => {
+              const groups = groupedByDate[date];
+              return (
+                <View key={date} style={styles.dateGroup}>
+                  <Text style={styles.dateHeader}>{date}</Text>
+                  {groups.map((group, idx) => {
                 if (group.type === 'conversion') {
                   return (
                     <View key={group.conversionId} style={styles.conversionGroup}>
@@ -365,9 +372,11 @@ export default function WalletScreen() {
                     </View>
                   </TouchableOpacity>
                 );
-              })}
-            </View>
-          ))}
+                  })}
+                </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
 
@@ -921,5 +930,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#FFFFFF',
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    textAlign: 'center',
   },
 });
