@@ -73,8 +73,9 @@ export const orderService = {
         return { success: false, error: 'Failed to create order' };
       }
 
+      const orderId = (order as OrderRow).id;
       const orderItems: OrderItemInsert[] = orderData.items.map(item => ({
-        order_id: order.id,
+        order_id: orderId,
         product_id: item.productId,
         vendor_id: item.vendorId,
         quantity: item.quantity,
@@ -90,8 +91,8 @@ export const orderService = {
         return { success: false, error: 'Failed to create order items' };
       }
 
-      console.log('[ORDER] Order created successfully:', order.id);
-      return await this.getOrderById(order.id);
+      console.log('[ORDER] Order created successfully:', orderId);
+      return await this.getOrderById(orderId);
     } catch (error) {
       console.error('[ORDER] Error creating order:', error);
       return { success: false, error: 'Failed to create order' };

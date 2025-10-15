@@ -58,9 +58,11 @@ export const addressService = {
       console.log('[ADDRESS] Creating address for user:', addressData.user_id);
 
       if (addressData.is_default) {
+        const resetUpdate: AddressUpdate = { is_default: false };
         const { error: resetError } = await supabase
           .from('user_addresses')
-          .update({ is_default: false })
+          // @ts-expect-error - Supabase generated types issue with update
+          .update(resetUpdate)
           .eq('user_id', addressData.user_id);
 
         if (resetError) {
@@ -79,7 +81,8 @@ export const addressService = {
         return { success: false, error: 'Failed to create address' };
       }
 
-      console.log('[ADDRESS] Address created successfully:', data.id);
+      const createdAddress = data as AddressRow;
+      console.log('[ADDRESS] Address created successfully:', createdAddress.id);
       return { success: true, data: data as AddressRow };
     } catch (error) {
       console.error('[ADDRESS] Error creating address:', error);
@@ -101,11 +104,15 @@ export const addressService = {
         return { success: false, error: 'Address not found' };
       }
 
+      const currentAddress = address as AddressRow;
+
       if (updates.is_default) {
+        const resetUpdate: AddressUpdate = { is_default: false };
         const { error: resetError } = await supabase
           .from('user_addresses')
-          .update({ is_default: false })
-          .eq('user_id', address.user_id);
+          // @ts-expect-error - Supabase generated types issue with update
+          .update(resetUpdate)
+          .eq('user_id', currentAddress.user_id);
 
         if (resetError) {
           console.error('[ADDRESS] Error resetting default addresses:', resetError);
@@ -162,9 +169,11 @@ export const addressService = {
     try {
       console.log('[ADDRESS] Setting default address:', addressId);
 
+      const resetUpdate: AddressUpdate = { is_default: false };
       const { error: resetError } = await supabase
         .from('user_addresses')
-        .update({ is_default: false })
+        // @ts-expect-error - Supabase generated types issue with update
+        .update(resetUpdate)
         .eq('user_id', userId);
 
       if (resetError) {
@@ -172,9 +181,11 @@ export const addressService = {
         return { success: false, error: 'Failed to reset default addresses' };
       }
 
+      const defaultUpdate: AddressUpdate = { is_default: true, updated_at: new Date().toISOString() };
       const { error } = await supabase
         .from('user_addresses')
-        .update({ is_default: true, updated_at: new Date().toISOString() })
+        // @ts-expect-error - Supabase generated types issue with update
+        .update(defaultUpdate)
         .eq('id', addressId)
         .eq('user_id', userId);
 

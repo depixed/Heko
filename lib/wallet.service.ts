@@ -4,6 +4,7 @@ import type { Database } from '@/types/database';
 type WalletTransactionRow = Database['public']['Tables']['wallet_transactions']['Row'];
 type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 type ReferralConversionInsert = Database['public']['Tables']['referral_conversions']['Insert'];
 
 export interface WalletBalance {
@@ -36,8 +37,8 @@ export const walletService = {
       }
 
       const balance: WalletBalance = {
-        virtualBalance: data.virtual_wallet / 100,
-        actualBalance: data.actual_wallet / 100,
+        virtualBalance: (data as ProfileRow).virtual_wallet / 100,
+        actualBalance: (data as ProfileRow).actual_wallet / 100,
       };
 
       console.log('[WALLET] Wallet balance:', balance);
@@ -110,11 +111,13 @@ export const walletService = {
       }
 
       const amountInPaise = Math.round(amount * 100);
-      const newBalance = profile.virtual_wallet + amountInPaise;
+      const newBalance = (profile as ProfileRow).virtual_wallet + amountInPaise;
 
+      const updateData: ProfileUpdate = { virtual_wallet: newBalance };
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ virtual_wallet: newBalance })
+        // @ts-expect-error - Supabase generated types issue with update
+        .update(updateData)
         .eq('id', userId);
 
       if (updateError) {
@@ -168,19 +171,21 @@ export const walletService = {
 
       const amountInPaise = Math.round(conversionAmount * 100);
 
-      if (referrerProfile.virtual_wallet < amountInPaise) {
+      if ((referrerProfile as ProfileRow).virtual_wallet < amountInPaise) {
         return { success: false, error: 'Insufficient virtual wallet balance' };
       }
 
-      const newVirtualBalance = referrerProfile.virtual_wallet - amountInPaise;
-      const newActualBalance = referrerProfile.actual_wallet + amountInPaise;
+      const newVirtualBalance = (referrerProfile as ProfileRow).virtual_wallet - amountInPaise;
+      const newActualBalance = (referrerProfile as ProfileRow).actual_wallet + amountInPaise;
 
+      const updateData: ProfileUpdate = {
+        virtual_wallet: newVirtualBalance,
+        actual_wallet: newActualBalance,
+      };
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
-          virtual_wallet: newVirtualBalance,
-          actual_wallet: newActualBalance,
-        })
+        // @ts-expect-error - Supabase generated types issue with update
+        .update(updateData)
         .eq('id', referrerId);
 
       if (updateError) {
@@ -212,6 +217,8 @@ export const walletService = {
         return { success: false, error: 'Failed to create virtual transaction' };
       }
 
+      const virtualTxnId = (virtualTxn as { id: string }).id;
+
       const actualCreditTxn: WalletTransactionInsert = {
         user_id: referrerId,
         type: 'referral',
@@ -236,13 +243,15 @@ export const walletService = {
         return { success: false, error: 'Failed to create actual transaction' };
       }
 
+      const actualTxnId = (actualTxn as { id: string }).id;
+
       const conversionRecord: ReferralConversionInsert = {
         referrer_user_id: referrerId,
         referee_user_id: refereeId,
         order_id: orderId,
         conversion_amount: amountInPaise,
-        virtual_debit_txn_id: virtualTxn.id,
-        actual_credit_txn_id: actualTxn.id,
+        virtual_debit_txn_id: virtualTxnId,
+        actual_credit_txn_id: actualTxnId,
       };
 
       const { error: conversionError } = await supabase
@@ -279,15 +288,17 @@ export const walletService = {
 
       const amountInPaise = Math.round(amount * 100);
 
-      if (profile.actual_wallet < amountInPaise) {
+      if ((profile as ProfileRow).actual_wallet < amountInPaise) {
         return { success: false, error: 'Insufficient actual wallet balance' };
       }
 
-      const newBalance = profile.actual_wallet - amountInPaise;
+      const newBalance = (profile as ProfileRow).actual_wallet - amountInPaise;
 
+      const updateData: ProfileUpdate = { actual_wallet: newBalance };
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ actual_wallet: newBalance })
+        // @ts-expect-error - Supabase generated types issue with update
+        .update(updateData)
         .eq('id', userId);
 
       if (updateError) {
@@ -340,11 +351,13 @@ export const walletService = {
       }
 
       const amountInPaise = Math.round(amount * 100);
-      const newBalance = profile.actual_wallet + amountInPaise;
+      const newBalance = (profile as ProfileRow).actual_wallet + amountInPaise;
 
+      const updateData: ProfileUpdate = { actual_wallet: newBalance };
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ actual_wallet: newBalance })
+        // @ts-expect-error - Supabase generated types issue with update
+        .update(updateData)
         .eq('id', userId);
 
       if (updateError) {
