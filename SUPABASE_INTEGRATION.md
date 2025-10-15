@@ -1,0 +1,270 @@
+# Supabase Integration - Phase 1 Complete
+
+## ✅ Completed Tasks
+
+### 1. Supabase Client Setup
+- ✅ Installed `@supabase/supabase-js`
+- ✅ Created Supabase configuration (`constants/supabase.ts`)
+- ✅ Created Supabase client instance (`lib/supabase.ts`)
+- ✅ Generated TypeScript database types (`types/database.ts`)
+
+### 2. Authentication Service
+- ✅ Created `lib/auth.service.ts` with methods:
+  - `sendOTP(phone)` - Sends OTP to user (mock implementation)
+  - `verifyOTP(phone, otp)` - Verifies OTP and logs in user
+  - `signUp(data)` - Creates new user profile
+  - `updateProfile(userId, updates)` - Updates user profile
+  - `getProfile(userId)` - Fetches user profile from Supabase
+  - `getStoredSession()` - Retrieves stored session
+  - `logout()` - Clears session
+
+### 3. Database Tables Integrated
+The following Supabase tables are now ready:
+- ✅ `profiles` - User profiles with wallet balances
+- ✅ `user_addresses` - User delivery addresses
+- ✅ `categories` - Product categories
+- ✅ `subcategories` - Product subcategories
+- ✅ `products` - Product catalog
+- ✅ `vendors` - Vendor information
+- ✅ `vendor_products` - Vendor-product mapping
+- ✅ `orders` - Customer orders
+- ✅ `order_items` - Order line items
+- ✅ `deliveries` - Delivery tracking
+- ✅ `delivery_items` - Delivery line items
+- ✅ `delivery_partners` - Delivery partner info
+- ✅ `wallet_transactions` - Wallet transaction history
+- ✅ `referral_conversions` - Referral conversion tracking
+- ✅ `returns` - Return requests
+- ✅ `return_items` - Return line items
+- ✅ `notifications` - User notifications
+- ✅ `banners` - Homepage banners
+- ✅ `system_settings` - App configuration
+- ✅ `user_roles` - User role management
+
+---
+
+## 🔄 Next Steps - Phase 2: Core Data Services
+
+### Phase 2 Tasks:
+
+#### 2.1 Product & Catalog Services
+Create `lib/catalog.service.ts`:
+- `getCategories()` - Fetch all active categories
+- `getSubcategories(categoryId)` - Fetch subcategories by category
+- `getProducts(filters)` - Fetch products with filters
+- `getProductById(id)` - Fetch single product details
+- `searchProducts(query)` - Search products by name/tags
+
+#### 2.2 Order Management Services
+Create `lib/order.service.ts`:
+- `createOrder(orderData)` - Create new order
+- `getOrders(userId, filters)` - Fetch user orders
+- `getOrderById(orderId)` - Fetch order details
+- `updateOrderStatus(orderId, status)` - Update order status
+- `cancelOrder(orderId, reason)` - Cancel order
+
+#### 2.3 Wallet Services
+Create `lib/wallet.service.ts`:
+- `getWalletBalance(userId)` - Fetch current wallet balances
+- `getTransactions(userId, filters)` - Fetch transaction history
+- `addCashback(userId, amount, orderId)` - Add cashback to virtual wallet
+- `processReferralConversion(referrerId, refereeId, orderId, amount)` - Process referral conversion
+- `redeemWallet(userId, amount, orderId)` - Redeem wallet balance
+- `addRefund(userId, amount, orderId)` - Add refund to actual wallet
+
+#### 2.4 Address Services
+Create `lib/address.service.ts`:
+- `getAddresses(userId)` - Fetch user addresses
+- `getAddressById(addressId)` - Fetch single address
+- `createAddress(addressData)` - Create new address
+- `updateAddress(addressId, updates)` - Update address
+- `deleteAddress(addressId)` - Delete address
+- `setDefaultAddress(userId, addressId)` - Set default address
+
+#### 2.5 Notification Services
+Create `lib/notification.service.ts`:
+- `getNotifications(userId, filters)` - Fetch user notifications
+- `markAsRead(notificationId)` - Mark notification as read
+- `markAllAsRead(userId)` - Mark all notifications as read
+- `deleteNotification(notificationId)` - Delete notification
+- `createNotification(notificationData)` - Create new notification
+
+#### 2.6 Banner & Settings Services
+Create `lib/app.service.ts`:
+- `getBanners()` - Fetch active banners
+- `getSystemSettings()` - Fetch app settings
+
+---
+
+## 🚀 Phase 3: Context Integration
+
+### Phase 3 Tasks:
+
+#### 3.1 Update AuthContext
+- ✅ Already supports Supabase via `authService`
+- Add wallet balance sync from Supabase profiles
+- Add real-time profile updates
+
+#### 3.2 Create ProductContext
+- Integrate with `catalog.service.ts`
+- Cache products, categories, subcategories
+- Real-time inventory updates
+
+#### 3.3 Create OrderContext
+- Integrate with `order.service.ts`
+- Track user orders
+- Real-time order status updates
+
+#### 3.4 Update Wallet in AuthContext
+- Replace mock wallet transactions with real Supabase data
+- Integrate with `wallet.service.ts`
+- Real-time wallet balance updates
+
+#### 3.5 Update AddressContext
+- Integrate with `address.service.ts`
+- Sync addresses from Supabase
+
+#### 3.6 Update NotificationContext
+- Integrate with `notification.service.ts`
+- Real-time notification updates via Supabase subscriptions
+
+---
+
+## 📊 Database Schema Notes
+
+### Important Field Mappings:
+
+**App Type → Database Column**
+- `user.id` → `profiles.id`
+- `user.referralId` → `profiles.referral_id`
+- `user.referredBy` → `profiles.referred_by`
+- `wallet.virtualBalance` → `profiles.virtual_wallet`
+- `wallet.actualBalance` → `profiles.actual_wallet`
+- `address.type` → `user_addresses.type`
+- `product.category` → `products.category_id`
+- `product.subcategory` → `products.subcategory_id`
+- `order.walletUsed` → `orders.wallet_used`
+- `transaction.walletType` → `wallet_transactions.wallet_type`
+- `transaction.kind` → `wallet_transactions.kind`
+
+### Wallet Transaction Types:
+- **CASHBACK** - Self-purchase cashback (2% of order total)
+- **REFERRAL_CONVERSION** - Referral commission conversion (10% of referee's order)
+- **REFUND** - Refund from returned items
+- **REDEMPTION** - Wallet balance used at checkout
+- **ADJUSTMENT** - Manual adjustment by admin
+
+### Order Status Flow:
+1. `processing` - Order received
+2. `preparing` - Items being prepared
+3. `out_for_delivery` - Assigned to delivery partner
+4. `delivered` - Order delivered successfully
+5. `partially_delivered` - Some items delivered
+6. `unfulfillable` - Cannot fulfill order
+7. `canceled` - Order canceled
+8. `return_in_progress` - Return initiated
+9. `returned` - Items returned
+
+---
+
+## 🔧 How to Use
+
+### Authentication Example:
+```typescript
+import { authService } from '@/lib/auth.service';
+
+// Sign up new user
+const { success, user, token } = await authService.signUp({
+  name: 'John Doe',
+  phone: '+919876543210',
+  email: 'john@example.com',
+  referredBy: 'HEKO123ABC'
+});
+
+// Send OTP
+await authService.sendOTP('+919876543210');
+
+// Verify OTP and login
+const result = await authService.verifyOTP('+919876543210', '123456');
+
+// Update profile
+await authService.updateProfile(userId, {
+  name: 'John Updated',
+  email: 'john.updated@example.com'
+});
+```
+
+### Direct Supabase Query Example:
+```typescript
+import { supabase } from '@/lib/supabase';
+
+// Fetch products
+const { data: products } = await supabase
+  .from('products')
+  .select(`
+    *,
+    categories(name),
+    subcategories(name)
+  `)
+  .eq('is_active', true)
+  .order('name');
+
+// Fetch orders with items
+const { data: orders } = await supabase
+  .from('orders')
+  .select(`
+    *,
+    order_items(
+      *,
+      products(name, image, unit)
+    ),
+    user_addresses(*)
+  `)
+  .eq('user_id', userId)
+  .order('created_at', { ascending: false });
+```
+
+---
+
+## 🔒 Security Notes
+
+1. **Row Level Security (RLS)**: You should enable RLS policies in Supabase dashboard for:
+   - Users can only access their own profile data
+   - Users can only see their own orders, addresses, transactions
+   - All users can read products, categories, banners
+   - Only admin roles can write to products, categories, system_settings
+
+2. **API Keys**: The current implementation uses the `anon` key which is safe for client-side use. Never expose the `service_role` key in the app.
+
+3. **Phone-based Auth**: Currently using mock OTP (`123456`). In production, integrate with:
+   - Twilio/Firebase for SMS OTP
+   - Supabase Auth with phone provider
+
+---
+
+## ✅ Testing Integration
+
+To test if Supabase is connected:
+
+1. Create a test user in Supabase dashboard → `profiles` table:
+   - `phone`: '+919999999999'
+   - `name`: 'Test User'
+   - `referral_id`: 'HEKO123TEST'
+   - `virtual_wallet`: 0
+   - `actual_wallet`: 0
+
+2. In the app, try logging in with phone `+919999999999` and OTP `123456`
+
+3. Check console logs for `[AUTH]` prefixed messages
+
+---
+
+## 📝 Summary
+
+**Phase 1 Status: ✅ COMPLETE**
+- Supabase client configured and connected
+- Authentication service implemented
+- Database types generated for all 20 tables
+- Ready for Phase 2: Building data services
+
+**Next Action**: Start Phase 2 by creating service files for products, orders, wallet, addresses, and notifications.
