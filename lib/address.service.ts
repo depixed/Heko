@@ -1,0 +1,193 @@
+import { supabase } from './supabase';
+import type { Database } from '@/types/database';
+
+type AddressRow = Database['public']['Tables']['user_addresses']['Row'];
+type AddressInsert = Database['public']['Tables']['user_addresses']['Insert'];
+type AddressUpdate = Database['public']['Tables']['user_addresses']['Update'];
+
+export const addressService = {
+  async getAddresses(userId: string): Promise<{ success: boolean; data?: AddressRow[]; error?: string }> {
+    try {
+      console.log('[ADDRESS] Fetching addresses for user:', userId);
+
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[ADDRESS] Error fetching addresses:', error);
+        return { success: false, error: 'Failed to fetch addresses' };
+      }
+
+      console.log(`[ADDRESS] Fetched ${data?.length || 0} addresses`);
+      return { success: true, data: data as AddressRow[] };
+    } catch (error) {
+      console.error('[ADDRESS] Error fetching addresses:', error);
+      return { success: false, error: 'Failed to fetch addresses' };
+    }
+  },
+
+  async getAddressById(addressId: string): Promise<{ success: boolean; data?: AddressRow; error?: string }> {
+    try {
+      console.log('[ADDRESS] Fetching address:', addressId);
+
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('id', addressId)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error('[ADDRESS] Error fetching address:', error);
+        return { success: false, error: 'Address not found' };
+      }
+
+      console.log('[ADDRESS] Fetched address:', addressId);
+      return { success: true, data: data as AddressRow };
+    } catch (error) {
+      console.error('[ADDRESS] Error fetching address:', error);
+      return { success: false, error: 'Failed to fetch address' };
+    }
+  },
+
+  async createAddress(addressData: Omit<AddressInsert, 'id' | 'created_at' | 'updated_at'>): Promise<{ success: boolean; data?: AddressRow; error?: string }> {
+    try {
+      console.log('[ADDRESS] Creating address for user:', addressData.user_id);
+
+      if (addressData.is_default) {
+        const { error: resetError } = await supabase
+          .from('user_addresses')
+          .update({ is_default: false })
+          .eq('user_id', addressData.user_id);
+
+        if (resetError) {
+          console.error('[ADDRESS] Error resetting default addresses:', resetError);
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .insert(addressData as any)
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error('[ADDRESS] Error creating address:', error);
+        return { success: false, error: 'Failed to create address' };
+      }
+
+      console.log('[ADDRESS] Address created successfully:', data.id);
+      return { success: true, data: data as AddressRow };
+    } catch (error) {
+      console.error('[ADDRESS] Error creating address:', error);
+      return { success: false, error: 'Failed to create address' };
+    }
+  },
+
+  async updateAddress(addressId: string, updates: Partial<Omit<AddressUpdate, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[ADDRESS] Updating address:', addressId);
+
+      const { data: address } = await supabase
+        .from('user_addresses')
+        .select('user_id')
+        .eq('id', addressId)
+        .maybeSingle();
+
+      if (!address) {
+        return { success: false, error: 'Address not found' };
+      }
+
+      if (updates.is_default) {
+        const { error: resetError } = await supabase
+          .from('user_addresses')
+          .update({ is_default: false })
+          .eq('user_id', address.user_id);
+
+        if (resetError) {
+          console.error('[ADDRESS] Error resetting default addresses:', resetError);
+        }
+      }
+
+      const updateData: AddressUpdate = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('user_addresses')
+        // @ts-expect-error - Supabase type inference issue
+        .update(updateData)
+        .eq('id', addressId);
+
+      if (error) {
+        console.error('[ADDRESS] Error updating address:', error);
+        return { success: false, error: 'Failed to update address' };
+      }
+
+      console.log('[ADDRESS] Address updated successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('[ADDRESS] Error updating address:', error);
+      return { success: false, error: 'Failed to update address' };
+    }
+  },
+
+  async deleteAddress(addressId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[ADDRESS] Deleting address:', addressId);
+
+      const { error } = await supabase
+        .from('user_addresses')
+        .delete()
+        .eq('id', addressId);
+
+      if (error) {
+        console.error('[ADDRESS] Error deleting address:', error);
+        return { success: false, error: 'Failed to delete address' };
+      }
+
+      console.log('[ADDRESS] Address deleted successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('[ADDRESS] Error deleting address:', error);
+      return { success: false, error: 'Failed to delete address' };
+    }
+  },
+
+  async setDefaultAddress(userId: string, addressId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[ADDRESS] Setting default address:', addressId);
+
+      const { error: resetError } = await supabase
+        .from('user_addresses')
+        .update({ is_default: false })
+        .eq('user_id', userId);
+
+      if (resetError) {
+        console.error('[ADDRESS] Error resetting default addresses:', resetError);
+        return { success: false, error: 'Failed to reset default addresses' };
+      }
+
+      const { error } = await supabase
+        .from('user_addresses')
+        .update({ is_default: true, updated_at: new Date().toISOString() })
+        .eq('id', addressId)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('[ADDRESS] Error setting default address:', error);
+        return { success: false, error: 'Failed to set default address' };
+      }
+
+      console.log('[ADDRESS] Default address set successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('[ADDRESS] Error setting default address:', error);
+      return { success: false, error: 'Failed to set default address' };
+    }
+  },
+};
