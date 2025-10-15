@@ -150,7 +150,8 @@ export const catalogService = {
         return { success: false, error: 'Product not found' };
       }
 
-      console.log('[CATALOG] Fetched product:', data.name);
+      const product = data as ProductWithRelations;
+      console.log('[CATALOG] Fetched product:', product.name);
       return { success: true, data: data as ProductWithRelations };
     } catch (error) {
       console.error('[CATALOG] Error fetching product:', error);

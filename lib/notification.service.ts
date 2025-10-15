@@ -175,7 +175,7 @@ export const notificationService = {
         return { success: false, error: 'Failed to create notification' };
       }
 
-      console.log('[NOTIFICATION] Notification created:', data.id);
+      console.log('[NOTIFICATION] Notification created:', (data as NotificationRow).id);
       return { success: true, data: data as NotificationRow };
     } catch (error) {
       console.error('[NOTIFICATION] Error creating notification:', error);
