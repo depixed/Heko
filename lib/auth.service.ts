@@ -92,6 +92,28 @@ export const authService = {
         return { success: false, error: 'Phone number already registered' };
       }
 
+      let referrerUserId: string | null = null;
+      if (data.referredBy && data.referredBy.trim()) {
+        console.log('[AUTH] Looking up referrer by code:', data.referredBy);
+        const { data: referrerProfile, error: referrerError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('referral_id', data.referredBy.trim().toUpperCase())
+          .maybeSingle();
+
+        if (referrerError) {
+          console.error('[AUTH] Error looking up referrer:', referrerError);
+          return { success: false, error: 'Invalid referral code' };
+        }
+
+        if (!referrerProfile) {
+          return { success: false, error: 'Invalid referral code' };
+        }
+
+        referrerUserId = (referrerProfile as { id: string }).id;
+        console.log('[AUTH] Found referrer user ID:', referrerUserId);
+      }
+
       const referralId = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       const insertData: ProfileInsert = {
@@ -99,7 +121,7 @@ export const authService = {
         phone: data.phone,
         email: data.email || null,
         referral_id: referralId,
-        referred_by: data.referredBy || null,
+        referred_by: referrerUserId,
         virtual_wallet: 0,
         actual_wallet: 0,
       };
