@@ -28,7 +28,7 @@ export const catalogService = {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .eq('status', 'active')
+        .eq('active', true)
         .order('name', { ascending: true });
 
       if (error) {
@@ -51,7 +51,7 @@ export const catalogService = {
       let query = supabase
         .from('subcategories')
         .select('*')
-        .eq('status', 'active')
+        .eq('active', true)
         .order('name', { ascending: true });
 
       if (categoryId) {
