@@ -1,29 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import type { User, Wallet, ReferralStats, Address, CartItem, WalletTransaction } from '@/types';
-import { authService } from '@/lib/auth.service';
-import { walletService } from '@/lib/wallet.service';
-import type { Database } from '@/types/database';
-
-type WalletTransactionRow = Database['public']['Tables']['wallet_transactions']['Row'];
-
-function convertDbTransactionToWalletTransaction(dbTxn: WalletTransactionRow): WalletTransaction {
-  return {
-    id: dbTxn.id,
-    type: dbTxn.type as any,
-    amount: dbTxn.amount / 100,
-    walletType: dbTxn.wallet_type,
-    direction: dbTxn.direction === 'credit' ? 'CREDIT' : 'DEBIT',
-    kind: dbTxn.kind.toUpperCase() as any,
-    orderId: dbTxn.order_id || undefined,
-    refereeUserId: dbTxn.referee_user_id || undefined,
-    conversionId: dbTxn.conversion_id || undefined,
-    description: dbTxn.description,
-    timestamp: dbTxn.created_at,
-    balanceAfter: dbTxn.balance_after / 100,
-  };
-}
+import type { User, Wallet, ReferralStats, Address, CartItem } from '@/types';
+import { MOCK_REFERRAL_STATS, MOCK_WALLET_TRANSACTIONS } from '@/mocks/data';
 
 const STORAGE_KEYS = {
   USER: '@heko_user',
@@ -61,122 +40,91 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const loadStoredData = async () => {
     try {
-      console.log('[AuthContext] Loading stored data...');
-      const session = await authService.getStoredSession();
-      
-      if (!session) {
-        console.log('[AuthContext] No session found');
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('[AuthContext] Session found, loading user data:', session.user.id);
-      setUser(session.user);
-      setToken(session.token);
-
-      const profileResult = await authService.getProfile(session.user.id);
-      if (profileResult.success && profileResult.profile) {
-        const profile = profileResult.profile;
-        
-        const walletData: Wallet = {
-          virtualBalance: profile.virtual_wallet,
-          actualBalance: profile.actual_wallet,
-          transactions: [],
-        };
-        setWallet(walletData);
-
-        const walletResult = await walletService.getTransactions(session.user.id, { limit: 50 });
-        if (walletResult.success && walletResult.data) {
-          walletData.transactions = walletResult.data.map(convertDbTransactionToWalletTransaction);
-          setWallet({ ...walletData });
-        }
-      }
-
-      const [storedAddresses, storedCart] = await Promise.all([
+      const [storedUser, storedToken, storedWallet, storedReferralStats, storedAddresses, storedCart] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.USER),
+        AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
+        AsyncStorage.getItem(STORAGE_KEYS.WALLET),
+        AsyncStorage.getItem(STORAGE_KEYS.REFERRAL_STATS),
         AsyncStorage.getItem(STORAGE_KEYS.ADDRESSES),
         AsyncStorage.getItem(STORAGE_KEYS.CART),
       ]);
+
+      if (storedUser) setUser(JSON.parse(storedUser));
+      if (storedToken) setToken(storedToken);
+      
+      if (storedWallet) {
+        setWallet(JSON.parse(storedWallet));
+      } else {
+        const initialWallet = {
+          virtualBalance: 4175,
+          actualBalance: 555,
+          transactions: MOCK_WALLET_TRANSACTIONS,
+        };
+        setWallet(initialWallet);
+        await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(initialWallet));
+      }
+      
+      if (storedReferralStats) {
+        setReferralStats(JSON.parse(storedReferralStats));
+      } else {
+        const initialStats = MOCK_REFERRAL_STATS;
+        setReferralStats(initialStats);
+        await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(initialStats));
+      }
       
       if (storedAddresses) setAddresses(JSON.parse(storedAddresses));
       if (storedCart) setCart(JSON.parse(storedCart));
     } catch (error) {
-      console.error('[AuthContext] Error loading stored data:', error);
+      console.error('Error loading stored data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const login = useCallback(async (userData: User, authToken: string) => {
-    console.log('[AuthContext] Login user:', userData.id);
     setUser(userData);
     setToken(authToken);
+    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
     
-    const profileResult = await authService.getProfile(userData.id);
-    if (profileResult.success && profileResult.profile) {
-      const profile = profileResult.profile;
-      
-      const walletData: Wallet = {
-        virtualBalance: profile.virtual_wallet,
-        actualBalance: profile.actual_wallet,
-        transactions: [],
-      };
-      setWallet(walletData);
-
-      const walletResult = await walletService.getTransactions(userData.id, { limit: 50 });
-      if (walletResult.success && walletResult.data) {
-        walletData.transactions = walletResult.data.map(convertDbTransactionToWalletTransaction);
-        setWallet({ ...walletData });
-      }
+    if (!referralStats.totalReferred) {
+      const initialStats = MOCK_REFERRAL_STATS;
+      setReferralStats(initialStats);
+      await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(initialStats));
     }
-  }, []);
+    
+    if (wallet.transactions.length === 0) {
+      const initialWallet = {
+        virtualBalance: 4175,
+        actualBalance: 555,
+        transactions: MOCK_WALLET_TRANSACTIONS,
+      };
+      setWallet(initialWallet);
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(initialWallet));
+    }
+  }, [referralStats.totalReferred, wallet.transactions.length]);
 
   const logout = useCallback(async () => {
-    console.log('[AuthContext] Logging out');
-    await authService.logout();
     setUser(null);
     setToken(null);
-    setWallet({
-      virtualBalance: 0,
-      actualBalance: 0,
-      transactions: [],
-    });
-    setReferralStats({
-      totalReferred: 0,
-      activeReferrers: 0,
-      lifetimeEarnings: 0,
-      thisMonthEarnings: 0,
-      convertedThisMonth: 0,
-      lifetimeConverted: 0,
-      referrals: [],
-    });
-    setAddresses([]);
-    setCart([]);
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.ADDRESSES,
-      STORAGE_KEYS.CART,
-    ]);
+    await AsyncStorage.multiRemove([STORAGE_KEYS.USER, STORAGE_KEYS.TOKEN]);
   }, []);
 
   const updateUser = useCallback(async (updates: Partial<User>) => {
     if (!user) return;
-    
-    const result = await authService.updateProfile(user.id, {
-      name: updates.name,
-      email: updates.email,
-    });
-
-    if (result.success) {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-    }
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
   }, [user]);
 
   const updateWallet = useCallback(async (newWallet: Wallet) => {
     setWallet(newWallet);
+    await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(newWallet));
   }, []);
 
   const updateReferralStats = useCallback(async (newStats: ReferralStats) => {
     setReferralStats(newStats);
+    await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(newStats));
   }, []);
 
   const addAddress = useCallback(async (address: Address) => {

@@ -61,7 +61,7 @@ export const authService = {
         name: profile.name,
         phone: profile.phone,
         email: profile.email || undefined,
-        referralId: profile.referral_id || profile.id,
+        referralId: profile.referral_id,
         referredBy: profile.referred_by || undefined,
         createdAt: profile.created_at,
       };
@@ -92,35 +92,26 @@ export const authService = {
         return { success: false, error: 'Phone number already registered' };
       }
 
-      console.log('[AUTH] Referral code provided:', data.referredBy || 'none');
+      const referralId = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-      const insertData: any = {
+      const insertData: ProfileInsert = {
         name: data.name,
         phone: data.phone,
         email: data.email || null,
+        referral_id: referralId,
+        referred_by: data.referredBy || null,
         virtual_wallet: 0,
         actual_wallet: 0,
       };
 
-      if (data.referredBy && data.referredBy.trim()) {
-        insertData.referred_by = data.referredBy.trim();
-      }
-
-      console.log('[AUTH] Insert data:', JSON.stringify(insertData, null, 2));
-
       const { data: resultData, error } = await supabase
         .from('profiles')
-        .insert(insertData)
+        .insert(insertData as any)
         .select()
         .single();
 
-      if (error) {
-        console.error('[AUTH] Error creating profile:', JSON.stringify(error, null, 2));
-        return { success: false, error: `Failed to create account: ${error.message}` };
-      }
-
-      if (!resultData) {
-        console.error('[AUTH] No data returned after insert');
+      if (error || !resultData) {
+        console.error('[AUTH] Error creating profile:', error);
         return { success: false, error: 'Failed to create account' };
       }
 

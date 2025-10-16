@@ -27,7 +27,7 @@ export interface Database {
           phone: string;
           name: string;
           email?: string | null;
-          referral_id?: string;
+          referral_id: string;
           referred_by?: string | null;
           virtual_wallet?: number;
           actual_wallet?: number;

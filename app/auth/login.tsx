@@ -1,30 +1,19 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
-import { authService } from '@/lib/auth.service';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (phone.length !== 10) {
       Alert.alert('Invalid Phone', 'Please enter a valid 10-digit mobile number');
       return;
     }
-
-    setLoading(true);
-    const result = await authService.sendOTP(phone);
-    setLoading(false);
-
-    if (result.success) {
-      router.push({ pathname: '/auth/otp' as any, params: { phone, mode: 'login' } });
-    } else {
-      Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
-    }
+    router.push({ pathname: '/auth/otp' as any, params: { phone, mode: 'login' } });
   };
 
   return (
@@ -52,16 +41,12 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, phone.length === 10 && !loading && styles.buttonActive]}
+            style={[styles.button, phone.length === 10 && styles.buttonActive]}
             onPress={handleContinue}
-            disabled={phone.length !== 10 || loading}
+            disabled={phone.length !== 10}
             testID="continue-button"
           >
-            {loading ? (
-              <ActivityIndicator color={Colors.text.inverse} />
-            ) : (
-              <Text style={styles.buttonText}>Continue</Text>
-            )}
+            <Text style={styles.buttonText}>Continue</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

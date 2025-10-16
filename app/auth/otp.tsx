@@ -1,19 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import { useAuth } from '@/contexts/AuthContext';
-import { authService } from '@/lib/auth.service';
+import type { User } from '@/types';
 
 export default function OTPScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone: string; mode: string; referralCode?: string }>();
+  const { phone, referralCode } = useLocalSearchParams<{ phone: string; mode: string; referralCode?: string }>();
   const { login } = useAuth();
   const [otp, setOtp] = useState('');
   const [countdown, setCountdown] = useState<number>(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
-  const [loading, setLoading] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -39,35 +38,22 @@ export default function OTPScreen() {
       return;
     }
 
-    if (!phone) {
-      Alert.alert('Error', 'Phone number is missing');
-      return;
-    }
+    const mockUser: User = {
+      id: `user_${Date.now()}`,
+      name: 'User',
+      phone: phone || '',
+      referralId: `REF${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      referredBy: referralCode,
+      createdAt: new Date().toISOString(),
+    };
 
-    setLoading(true);
-    const result = await authService.verifyOTP(phone, otp);
-    setLoading(false);
-
-    if (result.success && result.user && result.token) {
-      await login(result.user, result.token);
-      router.replace('/(tabs)/' as any);
-    } else {
-      Alert.alert('Error', result.error || 'Invalid OTP. Please try again.');
-      setOtp('');
-      inputRefs.current[0]?.focus();
-    }
+    await login(mockUser, `token_${Date.now()}`);
+    router.replace('/(tabs)/' as any);
   };
 
-  const handleResend = async () => {
-    if (!phone) return;
-
-    const result = await authService.sendOTP(phone);
-    if (result.success) {
-      setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
-      Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
-    } else {
-      Alert.alert('Error', result.error || 'Failed to resend OTP');
-    }
+  const handleResend = () => {
+    setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
+    Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
   };
 
   return (
@@ -96,16 +82,12 @@ export default function OTPScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, otp.length === APP_CONFIG.OTP.LENGTH && !loading && styles.buttonActive]}
+          style={[styles.button, otp.length === APP_CONFIG.OTP.LENGTH && styles.buttonActive]}
           onPress={handleVerify}
-          disabled={otp.length !== APP_CONFIG.OTP.LENGTH || loading}
+          disabled={otp.length !== APP_CONFIG.OTP.LENGTH}
           testID="verify-button"
         >
-          {loading ? (
-            <ActivityIndicator color={Colors.text.inverse} />
-          ) : (
-            <Text style={styles.buttonText}>Verify & Continue</Text>
-          )}
+          <Text style={styles.buttonText}>Verify & Continue</Text>
         </TouchableOpacity>
 
         <View style={styles.resendContainer}>
