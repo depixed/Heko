@@ -3,7 +3,7 @@ import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Minus, Plus } from 'lucide-react-native';
 import { useMemo } from 'react';
 import Colors from '@/constants/colors';
-import { MOCK_CATEGORIES, MOCK_PRODUCTS } from '@/mocks/data';
+import { useProducts } from '@/contexts/ProductContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Product, CartItem } from '@/types';
 
@@ -11,16 +11,15 @@ export default function SubcategoryScreen() {
   const router = useRouter();
   const { categoryId, subcategory } = useLocalSearchParams();
   const { cart, addToCart, updateCartItem } = useAuth();
+  const { categories, getProductsBySubcategory } = useProducts();
   
   const decodedSubcategory = decodeURIComponent(subcategory as string);
-  const category = MOCK_CATEGORIES.find(c => c.id === categoryId);
+  const category = categories.find(c => c.id === categoryId);
 
   const products = useMemo(() => {
-    if (!category) return [];
-    return MOCK_PRODUCTS.filter(
-      p => p.category === category.name && p.subcategory === decodedSubcategory
-    );
-  }, [category, decodedSubcategory]);
+    if (!category || !categoryId) return [];
+    return getProductsBySubcategory(categoryId as string, decodedSubcategory);
+  }, [category, categoryId, decodedSubcategory, getProductsBySubcategory]);
 
   const getCartQuantity = (productId: string) => {
     const item = cart.find((i: CartItem) => i.product.id === productId);
