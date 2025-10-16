@@ -1,20 +1,46 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
+import { authService } from '@/lib/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { login } = useAuth();
   const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (phone.length !== 10) {
       Alert.alert('Invalid Phone', 'Please enter a valid 10-digit mobile number');
       return;
     }
-    router.push({ pathname: '/auth/otp' as any, params: { phone, mode: 'signup', referralCode } });
+
+    if (!name.trim()) {
+      Alert.alert('Name Required', 'Please enter your name');
+      return;
+    }
+
+    setLoading(true);
+    const result = await authService.signUp({
+      name: name.trim(),
+      phone,
+      email: email.trim() || undefined,
+      referredBy: referralCode.trim() || undefined,
+    });
+    setLoading(false);
+
+    if (result.success && result.user && result.token) {
+      await login(result.user, result.token);
+      router.replace('/(tabs)/' as any);
+    } else {
+      Alert.alert('Error', result.error || 'Failed to create account. Please try again.');
+    }
   };
 
   return (
@@ -26,6 +52,19 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.form}>
+          <View>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter your full name"
+              placeholderTextColor={Colors.text.tertiary}
+              autoCapitalize="words"
+              value={name}
+              onChangeText={setName}
+              testID="name-input"
+            />
+          </View>
+
           <View>
             <Text style={styles.label}>Mobile Number</Text>
             <View style={styles.phoneInput}>
@@ -44,6 +83,20 @@ export default function SignupScreen() {
           </View>
 
           <View>
+            <Text style={styles.label}>Email (Optional)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter your email"
+              placeholderTextColor={Colors.text.tertiary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              testID="email-input"
+            />
+          </View>
+
+          <View>
             <Text style={styles.label}>Referral Code (Optional)</Text>
             <TextInput
               style={styles.textInput}
@@ -58,12 +111,16 @@ export default function SignupScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, phone.length === 10 && styles.buttonActive]}
+            style={[styles.button, phone.length === 10 && name.trim() && !loading && styles.buttonActive]}
             onPress={handleContinue}
-            disabled={phone.length !== 10}
+            disabled={phone.length !== 10 || !name.trim() || loading}
             testID="continue-button"
           >
-            <Text style={styles.buttonText}>Continue</Text>
+            {loading ? (
+              <ActivityIndicator color={Colors.text.inverse} />
+            ) : (
+              <Text style={styles.buttonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.terms}>
