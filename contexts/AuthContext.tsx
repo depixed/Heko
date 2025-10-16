@@ -57,8 +57,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const sessionResult = await authService.getStoredSession();
       if (sessionResult && sessionResult.user && sessionResult.token) {
         if (!isValidUUID(sessionResult.user.id)) {
-          console.log('[AuthContext] Invalid user ID format (not UUID), clearing session');
+          console.log('[AuthContext] Invalid user ID format (not UUID), clearing session and logging out');
           await authService.logout();
+          setUser(null);
+          setToken(null);
           setIsLoading(false);
           return;
         }
