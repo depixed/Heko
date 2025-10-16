@@ -56,7 +56,6 @@ export interface Database {
           type: 'home' | 'work' | 'other';
           other_label: string | null;
           flat: string;
-          area: string;
           landmark: string | null;
           city: string;
           state: string;
@@ -76,7 +75,6 @@ export interface Database {
           type: 'home' | 'work' | 'other';
           other_label?: string | null;
           flat: string;
-          area: string;
           landmark?: string | null;
           city: string;
           state: string;
@@ -96,7 +94,6 @@ export interface Database {
           type?: 'home' | 'work' | 'other';
           other_label?: string | null;
           flat?: string;
-          area?: string;
           landmark?: string | null;
           city?: string;
           state?: string;
