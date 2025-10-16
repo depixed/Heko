@@ -32,15 +32,15 @@ export const catalogService = {
         .order('sort_order', { ascending: true });
 
       if (error) {
-        console.error('[CATALOG] Error fetching categories:', error);
-        return { success: false, error: 'Failed to fetch categories' };
+        console.error('[CATALOG] Error fetching categories:', JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || 'Failed to fetch categories' };
       }
 
       console.log(`[CATALOG] Fetched ${data?.length || 0} categories`);
       return { success: true, data: data as CategoryRow[] };
     } catch (error) {
-      console.error('[CATALOG] Error fetching categories:', error);
-      return { success: false, error: 'Failed to fetch categories' };
+      console.error('[CATALOG] Error fetching categories:', JSON.stringify(error, null, 2));
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch categories' };
     }
   },
 
@@ -61,15 +61,15 @@ export const catalogService = {
       const { data, error } = await query;
 
       if (error) {
-        console.error('[CATALOG] Error fetching subcategories:', error);
-        return { success: false, error: 'Failed to fetch subcategories' };
+        console.error('[CATALOG] Error fetching subcategories:', JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || 'Failed to fetch subcategories' };
       }
 
       console.log(`[CATALOG] Fetched ${data?.length || 0} subcategories`);
       return { success: true, data: data as SubcategoryRow[] };
     } catch (error) {
-      console.error('[CATALOG] Error fetching subcategories:', error);
-      return { success: false, error: 'Failed to fetch subcategories' };
+      console.error('[CATALOG] Error fetching subcategories:', JSON.stringify(error, null, 2));
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch subcategories' };
     }
   },
 
@@ -119,15 +119,15 @@ export const catalogService = {
       const { data, error } = await query;
 
       if (error) {
-        console.error('[CATALOG] Error fetching products:', error);
-        return { success: false, error: 'Failed to fetch products' };
+        console.error('[CATALOG] Error fetching products:', JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || 'Failed to fetch products' };
       }
 
       console.log(`[CATALOG] Fetched ${data?.length || 0} products`);
       return { success: true, data: data as ProductWithRelations[] };
     } catch (error) {
-      console.error('[CATALOG] Error fetching products:', error);
-      return { success: false, error: 'Failed to fetch products' };
+      console.error('[CATALOG] Error fetching products:', JSON.stringify(error, null, 2));
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch products' };
     }
   },
 
@@ -146,16 +146,16 @@ export const catalogService = {
         .maybeSingle();
 
       if (error || !data) {
-        console.error('[CATALOG] Error fetching product:', error);
-        return { success: false, error: 'Product not found' };
+        console.error('[CATALOG] Error fetching product:', error ? JSON.stringify(error, null, 2) : 'No data');
+        return { success: false, error: error?.message || 'Product not found' };
       }
 
       const product = data as ProductWithRelations;
       console.log('[CATALOG] Fetched product:', product.name);
       return { success: true, data: data as ProductWithRelations };
     } catch (error) {
-      console.error('[CATALOG] Error fetching product:', error);
-      return { success: false, error: 'Failed to fetch product' };
+      console.error('[CATALOG] Error fetching product:', JSON.stringify(error, null, 2));
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch product' };
     }
   },
 
@@ -176,15 +176,15 @@ export const catalogService = {
         .limit(50);
 
       if (error) {
-        console.error('[CATALOG] Error searching products:', error);
-        return { success: false, error: 'Failed to search products' };
+        console.error('[CATALOG] Error searching products:', JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || 'Failed to search products' };
       }
 
       console.log(`[CATALOG] Found ${data?.length || 0} products matching "${query}"`);
       return { success: true, data: data as ProductWithRelations[] };
     } catch (error) {
-      console.error('[CATALOG] Error searching products:', error);
-      return { success: false, error: 'Failed to search products' };
+      console.error('[CATALOG] Error searching products:', JSON.stringify(error, null, 2));
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to search products' };
     }
   },
 };
