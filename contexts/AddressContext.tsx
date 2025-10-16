@@ -1,173 +1,151 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Address } from '@/types';
+import { addressService } from '@/lib/address.service';
+import { useAuth } from './AuthContext';
 
-const STORAGE_KEY = '@heko_addresses';
 
-const MOCK_ADDRESSES: Address[] = [
-  {
-    id: '1',
-    name: 'Rahul Sharma',
-    phone: '+91 98765 41230',
-    type: 'home',
-    flat: '23, Green Park Society',
-    area: 'Ahmedabad',
-    city: 'Ahmedabad',
-    state: 'Gujarat',
-    pincode: '380001',
-    isDefault: true,
-    isServiceable: true,
-  },
-  {
-    id: '2',
-    name: 'Anita Desai',
-    phone: '+91 99876 54321',
-    type: 'work',
-    flat: '45, Blue Ridge Avenue',
-    area: 'Pune',
-    city: 'Pune',
-    state: 'Maharashtra',
-    pincode: '411001',
-    isDefault: false,
-    isServiceable: true,
-  },
-  {
-    id: '3',
-    name: 'Vikram Singh',
-    phone: '+91 91234 56789',
-    type: 'home',
-    flat: '76, Maple Leaf Lane',
-    area: 'Bangalore',
-    city: 'Bangalore',
-    state: 'Karnataka',
-    pincode: '560001',
-    isDefault: false,
-    isServiceable: true,
-  },
-  {
-    id: '4',
-    name: 'Priya Mehta',
-    phone: '+91 96123 45678',
-    type: 'home',
-    flat: '12, Ocean View Road',
-    area: 'Mumbai',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    pincode: '400001',
-    isDefault: false,
-    isServiceable: true,
-  },
-  {
-    id: '5',
-    name: 'Suresh Kumar',
-    phone: '+91 94567 89012',
-    type: 'home',
-    flat: '33, Sunset Boulevard',
-    area: 'Chennai',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    pincode: '600001',
-    isDefault: false,
-    isServiceable: true,
-  },
-];
 
 export const [AddressProvider, useAddresses] = createContextHook(() => {
+  const { user } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    loadAddresses();
-  }, []);
+    if (user) {
+      loadAddresses();
+    } else {
+      setAddresses([]);
+      setIsLoading(false);
+    }
+  }, [user]);
 
   const loadAddresses = async () => {
+    if (!user) return;
+    
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setAddresses(JSON.parse(stored));
-      } else {
-        setAddresses(MOCK_ADDRESSES);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_ADDRESSES));
+      console.log('[AddressContext] Loading addresses for user:', user.id);
+      const result = await addressService.getAddresses(user.id);
+      if (result.success && result.data) {
+        const appAddresses: Address[] = result.data.map(addr => ({
+          id: addr.id,
+          name: addr.name,
+          phone: addr.phone,
+          type: addr.type as 'home' | 'work' | 'other',
+          otherLabel: addr.other_label || undefined,
+          flat: addr.flat,
+          area: addr.area,
+          landmark: addr.landmark || undefined,
+          city: addr.city,
+          state: addr.state,
+          pincode: addr.pincode,
+          isDefault: addr.is_default,
+          isServiceable: addr.is_serviceable,
+        }));
+        setAddresses(appAddresses);
+        console.log('[AddressContext] Addresses loaded:', appAddresses.length);
       }
     } catch (error) {
-      console.error('Failed to load addresses:', error);
-      setAddresses(MOCK_ADDRESSES);
+      console.error('[AddressContext] Error loading addresses:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const saveAddresses = async (newAddresses: Address[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newAddresses));
-      setAddresses(newAddresses);
-    } catch (error) {
-      console.error('Failed to save addresses:', error);
-    }
-  };
+
 
   const addAddress = useCallback(async (address: Omit<Address, 'id'>) => {
-    const newAddress: Address = {
-      ...address,
-      id: Date.now().toString(),
-    };
-
-    let updatedAddresses = [...addresses, newAddress];
-
-    if (newAddress.isDefault) {
-      updatedAddresses = updatedAddresses.map((addr) =>
-        addr.id === newAddress.id ? addr : { ...addr, isDefault: false }
-      );
+    if (!user) return;
+    
+    try {
+      console.log('[AddressContext] Adding new address');
+      const result = await addressService.createAddress({
+        user_id: user.id,
+        name: address.name,
+        phone: address.phone,
+        type: address.type,
+        other_label: address.otherLabel || null,
+        flat: address.flat,
+        area: address.area,
+        landmark: address.landmark || null,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        is_default: address.isDefault,
+        is_serviceable: address.isServiceable !== false,
+      });
+      
+      if (result.success) {
+        await loadAddresses();
+        console.log('[AddressContext] Address added successfully');
+      }
+    } catch (error) {
+      console.error('[AddressContext] Error adding address:', error);
     }
-
-    if (addresses.length === 0) {
-      updatedAddresses = updatedAddresses.map((addr) =>
-        addr.id === newAddress.id ? { ...addr, isDefault: true } : addr
-      );
-    }
-
-    await saveAddresses(updatedAddresses);
-  }, [addresses]);
+  }, [user, addresses]);
 
   const updateAddress = useCallback(async (id: string, updates: Partial<Address>) => {
-    let updatedAddresses = addresses.map((addr) =>
-      addr.id === id ? { ...addr, ...updates } : addr
-    );
-
-    if (updates.isDefault) {
-      updatedAddresses = updatedAddresses.map((addr) =>
-        addr.id === id ? addr : { ...addr, isDefault: false }
-      );
+    try {
+      console.log('[AddressContext] Updating address:', id);
+      const updateData: any = {};
+      
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.phone !== undefined) updateData.phone = updates.phone;
+      if (updates.type !== undefined) updateData.type = updates.type;
+      if (updates.otherLabel !== undefined) updateData.other_label = updates.otherLabel;
+      if (updates.flat !== undefined) updateData.flat = updates.flat;
+      if (updates.area !== undefined) updateData.area = updates.area;
+      if (updates.landmark !== undefined) updateData.landmark = updates.landmark;
+      if (updates.city !== undefined) updateData.city = updates.city;
+      if (updates.state !== undefined) updateData.state = updates.state;
+      if (updates.pincode !== undefined) updateData.pincode = updates.pincode;
+      if (updates.isServiceable !== undefined) updateData.is_serviceable = updates.isServiceable;
+      
+      const result = await addressService.updateAddress(id, updateData);
+      
+      if (result.success) {
+        await loadAddresses();
+        console.log('[AddressContext] Address updated successfully');
+      }
+    } catch (error) {
+      console.error('[AddressContext] Error updating address:', error);
     }
-
-    await saveAddresses(updatedAddresses);
   }, [addresses]);
 
   const deleteAddress = useCallback(async (id: string) => {
-    const addressToDelete = addresses.find((addr) => addr.id === id);
-    if (!addressToDelete) return;
-
     if (addresses.length === 1) {
+      console.log('[AddressContext] Cannot delete last address');
       return;
     }
-
-    let updatedAddresses = addresses.filter((addr) => addr.id !== id);
-
-    if (addressToDelete.isDefault && updatedAddresses.length > 0) {
-      updatedAddresses[0].isDefault = true;
+    
+    try {
+      console.log('[AddressContext] Deleting address:', id);
+      const result = await addressService.deleteAddress(id);
+      
+      if (result.success) {
+        await loadAddresses();
+        console.log('[AddressContext] Address deleted successfully');
+      }
+    } catch (error) {
+      console.error('[AddressContext] Error deleting address:', error);
     }
-
-    await saveAddresses(updatedAddresses);
   }, [addresses]);
 
   const setDefaultAddress = useCallback(async (id: string) => {
-    const updatedAddresses = addresses.map((addr) => ({
-      ...addr,
-      isDefault: addr.id === id,
-    }));
-    await saveAddresses(updatedAddresses);
-  }, [addresses]);
+    if (!user) return;
+    
+    try {
+      console.log('[AddressContext] Setting default address:', id);
+      const result = await addressService.setDefaultAddress(user.id, id);
+      
+      if (result.success) {
+        await loadAddresses();
+        console.log('[AddressContext] Default address set successfully');
+      }
+    } catch (error) {
+      console.error('[AddressContext] Error setting default address:', error);
+    }
+  }, [user, addresses]);
 
   const getDefaultAddress = useCallback(() => {
     return addresses.find((addr) => addr.isDefault) || addresses[0];
