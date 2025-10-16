@@ -99,7 +99,6 @@ export default function AddAddressScreen() {
         type: formData.type,
         otherLabel: formData.type === 'other' ? formData.otherLabel.trim() : undefined,
         isDefault: formData.isDefault,
-        isServiceable: true,
       });
 
       console.log('[AddAddress] Address saved successfully');

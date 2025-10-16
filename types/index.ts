@@ -23,7 +23,6 @@ export interface Address {
   lat?: number;
   lng?: number;
   isDefault: boolean;
-  isServiceable?: boolean;
 }
 
 export interface Product {
