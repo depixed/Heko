@@ -55,10 +55,15 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
 
 
   const addAddress = useCallback(async (address: Omit<Address, 'id'>) => {
-    if (!user) return;
+    if (!user) {
+      console.error('[AddressContext] Cannot add address: user is null');
+      throw new Error('User not logged in');
+    }
     
     try {
-      console.log('[AddressContext] Adding new address');
+      console.log('[AddressContext] Adding new address for user:', user.id);
+      console.log('[AddressContext] Address to add:', JSON.stringify(address, null, 2));
+      
       const result = await addressService.createAddress({
         user_id: user.id,
         name: address.name,
@@ -78,15 +83,21 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       if (result.success) {
         await loadAddresses();
         console.log('[AddressContext] Address added successfully');
+      } else {
+        console.error('[AddressContext] Failed to add address:', result.error);
+        throw new Error(result.error || 'Failed to add address');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AddressContext] Error adding address:', error);
+      throw error;
     }
-  }, [user, addresses]);
+  }, [user]);
 
   const updateAddress = useCallback(async (id: string, updates: Partial<Address>) => {
     try {
       console.log('[AddressContext] Updating address:', id);
+      console.log('[AddressContext] Updates:', JSON.stringify(updates, null, 2));
+      
       const updateData: any = {};
       
       if (updates.name !== undefined) updateData.name = updates.name;
@@ -100,17 +111,22 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       if (updates.state !== undefined) updateData.state = updates.state;
       if (updates.pincode !== undefined) updateData.pincode = updates.pincode;
       if (updates.isServiceable !== undefined) updateData.is_serviceable = updates.isServiceable;
+      if (updates.isDefault !== undefined) updateData.is_default = updates.isDefault;
       
       const result = await addressService.updateAddress(id, updateData);
       
       if (result.success) {
         await loadAddresses();
         console.log('[AddressContext] Address updated successfully');
+      } else {
+        console.error('[AddressContext] Failed to update address:', result.error);
+        throw new Error(result.error || 'Failed to update address');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AddressContext] Error updating address:', error);
+      throw error;
     }
-  }, [addresses]);
+  }, []);
 
   const deleteAddress = useCallback(async (id: string) => {
     if (addresses.length === 1) {
