@@ -128,14 +128,22 @@ export const authService = {
         actual_wallet: 0,
       };
 
+      console.log('[AUTH] Insert data:', JSON.stringify(insertData, null, 2));
+
       const { data: resultData, error } = await supabase
         .from('profiles')
-        .insert(insertData as any)
+        // @ts-expect-error - Supabase type inference issue with generated types
+        .insert(insertData)
         .select()
         .single();
 
-      if (error || !resultData) {
-        console.error('[AUTH] Error creating profile:', error);
+      if (error) {
+        console.error('[AUTH] Error creating profile:', JSON.stringify(error, null, 2));
+        return { success: false, error: `Failed to create account: ${error.message}` };
+      }
+
+      if (!resultData) {
+        console.error('[AUTH] No data returned after insert');
         return { success: false, error: 'Failed to create account' };
       }
 
