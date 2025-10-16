@@ -2,35 +2,39 @@ import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@/types';
 import type { Database } from '@/types/database';
+import { SUPABASE_CONFIG } from '@/constants/supabase';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
-type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 
 const STORAGE_KEY = '@heko_session';
+const FUNCTIONS_URL = `${SUPABASE_CONFIG.URL}/functions/v1`;
 
 export const authService = {
-  async sendOTP(phone: string, mode: 'login' | 'signup' = 'login'): Promise<{ success: boolean; error?: string }> {
+  async sendOTP(phone: string, mode: 'login' | 'signup' = 'login'): Promise<{ success: boolean; otp?: string; error?: string }> {
     try {
       console.log('[AUTH] Sending OTP to:', phone, 'mode:', mode);
       
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .maybeSingle();
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
 
-      if (mode === 'login' && !existingProfile) {
-        return { success: false, error: 'Phone number not registered. Please sign up first.' };
+      const response = await fetch(`${FUNCTIONS_URL}/customer-send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ phone: formattedPhone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('[AUTH] Error sending OTP:', data);
+        return { success: false, error: data.error || 'Failed to send OTP' };
       }
 
-      if (mode === 'signup' && existingProfile) {
-        return { success: false, error: 'Phone number already registered. Please login instead.' };
-      }
-
-      await AsyncStorage.setItem(`@heko_otp_${phone}`, '123456');
-      
-      return { success: true };
+      console.log('[AUTH] OTP sent successfully', data.otp ? `(dev: ${data.otp})` : '');
+      return { success: true, otp: data.otp };
     } catch (error) {
       console.error('[AUTH] Error sending OTP:', error);
       return { success: false, error: 'Failed to send OTP' };
@@ -41,69 +45,80 @@ export const authService = {
     try {
       console.log('[AUTH] Verifying OTP for login:', phone);
       
-      const storedOTP = await AsyncStorage.getItem(`@heko_otp_${phone}`);
-      
-      if (storedOTP !== otp) {
-        return { success: false, error: 'Invalid OTP' };
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+      const response = await fetch(`${FUNCTIONS_URL}/customer-verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ phone: formattedPhone, otp }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('[AUTH] Error verifying OTP:', data);
+        return { success: false, error: data.error || 'Invalid OTP' };
       }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .maybeSingle();
-
-      if (error || !data) {
-        console.error('[AUTH] Profile not found:', error);
-        return { success: false, error: 'User not found' };
+      if (data.isNewUser) {
+        return { success: false, error: 'Please sign up first' };
       }
 
-      const profile = data as ProfileRow;
+      if (!data.user || !data.sessionToken) {
+        return { success: false, error: 'Invalid response from server' };
+      }
 
       const user: User = {
-        id: profile.id,
-        name: profile.name,
-        phone: profile.phone,
-        email: profile.email || undefined,
-        referralId: profile.referral_code,
-        referredBy: profile.referred_by || undefined,
-        createdAt: profile.created_at,
+        id: data.user.id,
+        name: data.user.name,
+        phone: data.user.phone,
+        email: data.user.email || undefined,
+        referralId: data.user.referral_code,
+        referredBy: data.user.referred_by || undefined,
+        createdAt: data.user.created_at,
       };
 
-      const token = `token_${profile.id}_${Date.now()}`;
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, token }));
-      await AsyncStorage.removeItem(`@heko_otp_${phone}`);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, token: data.sessionToken }));
 
-      console.log('[AUTH] Login successful for user:', profile.id);
-      return { success: true, user, token };
+      console.log('[AUTH] Login successful for user:', user.id);
+      return { success: true, user, token: data.sessionToken };
     } catch (error) {
       console.error('[AUTH] Error verifying OTP:', error);
       return { success: false, error: 'Failed to verify OTP' };
     }
   },
 
-  async verifyOTPSignup(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
+  async verifyOTPSignup(phone: string, otp: string): Promise<{ success: boolean; isNewUser?: boolean; error?: string }> {
     try {
       console.log('[AUTH] Verifying OTP for signup:', phone);
       
-      const storedOTP = await AsyncStorage.getItem(`@heko_otp_${phone}`);
-      
-      if (storedOTP !== otp) {
-        return { success: false, error: 'Invalid OTP' };
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+      const response = await fetch(`${FUNCTIONS_URL}/customer-verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ phone: formattedPhone, otp }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('[AUTH] Error verifying OTP:', data);
+        return { success: false, error: data.error || 'Invalid OTP' };
       }
 
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .maybeSingle();
-
-      if (existingProfile) {
-        return { success: false, error: 'Phone number already registered' };
+      if (!data.isNewUser) {
+        return { success: false, error: 'Phone number already registered. Please login instead.' };
       }
 
-      await AsyncStorage.removeItem(`@heko_otp_${phone}`);
-      return { success: true };
+      console.log('[AUTH] OTP verified for new user');
+      return { success: true, isNewUser: true };
     } catch (error) {
       console.error('[AUTH] Error verifying OTP for signup:', error);
       return { success: false, error: 'Failed to verify OTP' };
@@ -114,67 +129,47 @@ export const authService = {
     try {
       console.log('[AUTH] Signing up user:', data.phone);
 
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', data.phone)
-        .maybeSingle();
+      const formattedPhone = data.phone.startsWith('+') ? data.phone : `+91${data.phone}`;
 
-      if (existingProfile) {
-        return { success: false, error: 'Phone number already registered' };
+      const response = await fetch(`${FUNCTIONS_URL}/customer-signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          phone: formattedPhone,
+          name: data.name,
+          email: data.email || undefined,
+          referredBy: data.referredBy || undefined,
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok || !responseData.success) {
+        console.error('[AUTH] Error signing up:', responseData);
+        return { success: false, error: responseData.error || 'Failed to create account' };
       }
 
-      const referralCode = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-      const insertData: ProfileInsert = {
-        name: data.name,
-        phone: data.phone,
-        email: data.email || null,
-        referral_code: referralCode,
-        referred_by: data.referredBy || null,
-        virtual_wallet: 0,
-        actual_wallet: 0,
-      };
-
-      const { data: resultData, error } = await supabase
-        .from('profiles')
-        .insert(insertData as any)
-        .select()
-        .single();
-
-      if (error || !resultData) {
-        console.error('[AUTH] Error creating profile:', error);
-        return { success: false, error: 'Failed to create account' };
-      }
-
-      const newProfile = resultData as ProfileRow;
-
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: newProfile.id,
-          role: 'customer',
-        } as any);
-
-      if (roleError) {
-        console.error('[AUTH] Error creating user role:', roleError);
+      if (!responseData.user || !responseData.sessionToken) {
+        return { success: false, error: 'Invalid response from server' };
       }
 
       const user: User = {
-        id: newProfile.id,
-        name: newProfile.name,
-        phone: newProfile.phone,
-        email: newProfile.email || undefined,
-        referralId: newProfile.referral_code,
-        referredBy: newProfile.referred_by || undefined,
-        createdAt: newProfile.created_at,
+        id: responseData.user.id,
+        name: responseData.user.name,
+        phone: responseData.user.phone,
+        email: responseData.user.email || undefined,
+        referralId: responseData.user.referral_code,
+        referredBy: responseData.user.referred_by || undefined,
+        createdAt: responseData.user.created_at,
       };
 
-      const token = `token_${newProfile.id}_${Date.now()}`;
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, token }));
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, token: responseData.sessionToken }));
 
-      console.log('[AUTH] Sign up successful for user:', newProfile.id);
-      return { success: true, user, token };
+      console.log('[AUTH] Sign up successful for user:', user.id);
+      return { success: true, user, token: responseData.sessionToken };
     } catch (error) {
       console.error('[AUTH] Error signing up:', error);
       return { success: false, error: 'Failed to create account' };
@@ -185,9 +180,41 @@ export const authService = {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (!stored) return null;
-      return JSON.parse(stored);
+      
+      const session = JSON.parse(stored);
+      
+      const response = await fetch(`${FUNCTIONS_URL}/customer-validate-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ sessionToken: session.token }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.log('[AUTH] Session validation failed, clearing stored session');
+        await AsyncStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      const user: User = {
+        id: data.user.id,
+        name: data.user.name,
+        phone: data.user.phone,
+        email: data.user.email || undefined,
+        referralId: data.user.referral_code,
+        referredBy: data.user.referred_by || undefined,
+        createdAt: data.user.created_at,
+      };
+
+      console.log('[AUTH] Session validated successfully');
+      return { user, token: session.token };
     } catch (error) {
       console.error('[AUTH] Error getting stored session:', error);
+      await AsyncStorage.removeItem(STORAGE_KEY);
       return null;
     }
   },
