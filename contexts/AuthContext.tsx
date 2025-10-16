@@ -40,6 +40,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     loadStoredData();
   }, []);
 
+  const isValidUUID = (id: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  };
+
   const loadStoredData = async () => {
     try {
       console.log('[AuthContext] Loading stored data');
@@ -51,6 +56,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       const sessionResult = await authService.getStoredSession();
       if (sessionResult && sessionResult.user && sessionResult.token) {
+        if (!isValidUUID(sessionResult.user.id)) {
+          console.log('[AuthContext] Invalid user ID format (not UUID), clearing session');
+          await authService.logout();
+          setIsLoading(false);
+          return;
+        }
+        
         console.log('[AuthContext] Found stored session, loading profile');
         setUser(sessionResult.user);
         setToken(sessionResult.token);
