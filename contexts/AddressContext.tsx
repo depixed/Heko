@@ -27,21 +27,27 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       console.log('[AddressContext] Loading addresses for user:', user.id);
       const result = await addressService.getAddresses(user.id);
       if (result.success && result.data) {
-        const appAddresses: Address[] = result.data.map(addr => ({
-          id: addr.id,
-          name: addr.name,
-          phone: addr.phone,
-          type: addr.type as 'home' | 'work' | 'other',
-          otherLabel: addr.other_label || undefined,
-          flat: addr.flat,
-          area: addr.area,
-          landmark: addr.landmark || undefined,
-          city: addr.city,
-          state: addr.state,
-          pincode: addr.pincode,
-          isDefault: addr.is_default,
-          isServiceable: addr.is_serviceable,
-        }));
+        const appAddresses: Address[] = result.data.map(addr => {
+          const flatParts = addr.flat.split(', ');
+          const flat = flatParts[0] || addr.flat;
+          const area = flatParts.length > 1 ? flatParts.slice(1).join(', ') : '';
+          
+          return {
+            id: addr.id,
+            name: addr.name,
+            phone: addr.phone,
+            type: addr.type as 'home' | 'work' | 'other',
+            otherLabel: addr.other_label || undefined,
+            flat,
+            area,
+            landmark: addr.landmark || undefined,
+            city: addr.city,
+            state: addr.state,
+            pincode: addr.pincode,
+            isDefault: addr.is_default,
+            isServiceable: addr.is_serviceable,
+          };
+        });
         setAddresses(appAddresses);
         console.log('[AddressContext] Addresses loaded:', appAddresses.length);
       }
