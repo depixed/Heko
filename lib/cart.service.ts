@@ -54,7 +54,8 @@ export const cartService = {
       }
 
       if (existing) {
-        return await this.updateCartItem(userId, productId, existing.quantity + quantity);
+        const typedExisting = existing as CartItemRow;
+        return await this.updateCartItem(userId, productId, typedExisting.quantity + quantity);
       }
 
       const cartInsert: CartItemInsert = {
