@@ -12,7 +12,7 @@ import { useRouter, Stack } from 'expo-router';
 import { ChevronLeft, ChevronDown, Home, Briefcase, MapPin, Trash2, Plus, Minus } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
-import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAddresses } from '@/contexts/AddressContext';
 import { MOCK_PRODUCTS } from '@/mocks/data';
 import type { Product } from '@/types';
@@ -20,7 +20,7 @@ import type { Product } from '@/types';
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, updateCartItem, addToCart } = useCart();
+  const { cart, updateCartItem, addToCart } = useAuth();
   const { getDefaultAddress } = useAddresses();
 
   const defaultAddress = getDefaultAddress();

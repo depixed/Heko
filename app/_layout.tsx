@@ -6,7 +6,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AddressProvider } from "@/contexts/AddressContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
-import { CartProvider } from "@/contexts/CartContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,13 +40,11 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <CartProvider>
-            <AddressProvider>
-              <NotificationProvider>
-                <RootLayoutNav />
-              </NotificationProvider>
-            </AddressProvider>
-          </CartProvider>
+          <AddressProvider>
+            <NotificationProvider>
+              <RootLayoutNav />
+            </NotificationProvider>
+          </AddressProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
