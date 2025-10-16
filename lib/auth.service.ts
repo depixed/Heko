@@ -103,15 +103,17 @@ export const authService = {
 
         if (referrerError) {
           console.error('[AUTH] Error looking up referrer:', referrerError);
-          return { success: false, error: 'Invalid referral code' };
+          return { success: false, error: 'Failed to validate referral code. Please try again.' };
         }
 
         if (!referrerProfile) {
-          return { success: false, error: 'Invalid referral code' };
+          return { success: false, error: 'Invalid referral code. Please check and try again.' };
         }
 
         referrerUserId = (referrerProfile as { id: string }).id;
         console.log('[AUTH] Found referrer user ID:', referrerUserId);
+      } else {
+        console.log('[AUTH] No referral code provided, creating user without referrer');
       }
 
       const referralId = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
