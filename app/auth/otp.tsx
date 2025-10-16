@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import { useAuth } from '@/contexts/AuthContext';
-import type { User } from '@/types';
+import { authService } from '@/lib/auth.service';
 
 export default function OTPScreen() {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function OTPScreen() {
   const { login } = useAuth();
   const [otp, setOtp] = useState('');
   const [countdown, setCountdown] = useState<number>(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
+  const [isVerifying, setIsVerifying] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -38,22 +39,44 @@ export default function OTPScreen() {
       return;
     }
 
-    const mockUser: User = {
-      id: `user_${Date.now()}`,
-      name: 'User',
-      phone: phone || '',
-      referralId: `REF${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      referredBy: referralCode,
-      createdAt: new Date().toISOString(),
-    };
+    if (!phone) {
+      Alert.alert('Error', 'Phone number is required');
+      return;
+    }
 
-    await login(mockUser, `token_${Date.now()}`);
-    router.replace('/(tabs)/' as any);
+    setIsVerifying(true);
+    try {
+      const result = await authService.verifyOTP(phone, otp);
+      
+      if (result.success && result.user && result.token) {
+        await login(result.user, result.token);
+        router.replace('/(tabs)/' as any);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to verify OTP');
+      }
+    } catch (error) {
+      console.error('[OTP] Error verifying OTP:', error);
+      Alert.alert('Error', 'Failed to verify OTP');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
-  const handleResend = () => {
-    setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
-    Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
+  const handleResend = async () => {
+    if (!phone) return;
+    
+    try {
+      const result = await authService.sendOTP(phone);
+      if (result.success) {
+        setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
+        Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send OTP');
+      }
+    } catch (error) {
+      console.error('[OTP] Error resending OTP:', error);
+      Alert.alert('Error', 'Failed to send OTP');
+    }
   };
 
   return (
@@ -82,12 +105,16 @@ export default function OTPScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, otp.length === APP_CONFIG.OTP.LENGTH && styles.buttonActive]}
+          style={[styles.button, otp.length === APP_CONFIG.OTP.LENGTH && !isVerifying && styles.buttonActive]}
           onPress={handleVerify}
-          disabled={otp.length !== APP_CONFIG.OTP.LENGTH}
+          disabled={otp.length !== APP_CONFIG.OTP.LENGTH || isVerifying}
           testID="verify-button"
         >
-          <Text style={styles.buttonText}>Verify & Continue</Text>
+          {isVerifying ? (
+            <ActivityIndicator color={Colors.text.inverse} />
+          ) : (
+            <Text style={styles.buttonText}>Verify & Continue</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.resendContainer}>
