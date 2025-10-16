@@ -70,17 +70,9 @@ export const addressService = {
         }
       }
 
-      const { area, ...addressWithoutArea } = addressData;
-      const flatWithArea = area ? `${addressData.flat}, ${area}` : addressData.flat;
-      
-      const insertData = {
-        ...addressWithoutArea,
-        flat: flatWithArea,
-      };
-
       const { data, error } = await supabase
         .from('user_addresses')
-        .insert(insertData as any)
+        .insert(addressData as any)
         .select()
         .single();
 
@@ -104,7 +96,7 @@ export const addressService = {
 
       const { data: address } = await supabase
         .from('user_addresses')
-        .select('user_id, flat')
+        .select('user_id')
         .eq('id', addressId)
         .maybeSingle();
 
@@ -127,17 +119,10 @@ export const addressService = {
         }
       }
 
-      const { area, ...updatesWithoutArea } = updates;
-      let updateData: AddressUpdate = {
-        ...updatesWithoutArea,
+      const updateData: AddressUpdate = {
+        ...updates,
         updated_at: new Date().toISOString(),
       };
-
-      if (area !== undefined || updates.flat !== undefined) {
-        const newFlat = updates.flat || currentAddress.flat;
-        const flatWithArea = area ? `${newFlat}, ${area}` : newFlat;
-        updateData.flat = flatWithArea;
-      }
 
       const { error } = await supabase
         .from('user_addresses')
