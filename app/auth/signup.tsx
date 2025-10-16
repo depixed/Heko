@@ -1,20 +1,36 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
+import { authService } from '@/lib/auth.service';
 
 export default function SignupScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (phone.length !== 10) {
       Alert.alert('Invalid Phone', 'Please enter a valid 10-digit mobile number');
       return;
     }
-    router.push({ pathname: '/auth/otp' as any, params: { phone, mode: 'signup', referralCode } });
+
+    setIsSending(true);
+    try {
+      const result = await authService.sendOTP(phone, 'signup');
+      if (result.success) {
+        router.push({ pathname: '/auth/otp' as any, params: { phone, mode: 'signup', referralCode } });
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send OTP');
+      }
+    } catch (error) {
+      console.error('[Signup] Error sending OTP:', error);
+      Alert.alert('Error', 'Failed to send OTP');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -58,12 +74,16 @@ export default function SignupScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, phone.length === 10 && styles.buttonActive]}
+            style={[styles.button, phone.length === 10 && !isSending && styles.buttonActive]}
             onPress={handleContinue}
-            disabled={phone.length !== 10}
+            disabled={phone.length !== 10 || isSending}
             testID="continue-button"
           >
-            <Text style={styles.buttonText}>Continue</Text>
+            {isSending ? (
+              <ActivityIndicator color={Colors.text.inverse} />
+            ) : (
+              <Text style={styles.buttonText}>Continue</Text>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.terms}>

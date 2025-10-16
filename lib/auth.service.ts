@@ -10,9 +10,9 @@ type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 const STORAGE_KEY = '@heko_session';
 
 export const authService = {
-  async sendOTP(phone: string): Promise<{ success: boolean; error?: string }> {
+  async sendOTP(phone: string, mode: 'login' | 'signup' = 'login'): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('[AUTH] Sending OTP to:', phone);
+      console.log('[AUTH] Sending OTP to:', phone, 'mode:', mode);
       
       const { data: existingProfile } = await supabase
         .from('profiles')
@@ -20,8 +20,12 @@ export const authService = {
         .eq('phone', phone)
         .maybeSingle();
 
-      if (!existingProfile) {
+      if (mode === 'login' && !existingProfile) {
         return { success: false, error: 'Phone number not registered. Please sign up first.' };
+      }
+
+      if (mode === 'signup' && existingProfile) {
+        return { success: false, error: 'Phone number already registered. Please login instead.' };
       }
 
       await AsyncStorage.setItem(`@heko_otp_${phone}`, '123456');
@@ -33,9 +37,9 @@ export const authService = {
     }
   },
 
-  async verifyOTP(phone: string, otp: string): Promise<{ success: boolean; user?: User; token?: string; error?: string }> {
+  async verifyOTPLogin(phone: string, otp: string): Promise<{ success: boolean; user?: User; token?: string; error?: string }> {
     try {
-      console.log('[AUTH] Verifying OTP for:', phone);
+      console.log('[AUTH] Verifying OTP for login:', phone);
       
       const storedOTP = await AsyncStorage.getItem(`@heko_otp_${phone}`);
       
@@ -61,7 +65,7 @@ export const authService = {
         name: profile.name,
         phone: profile.phone,
         email: profile.email || undefined,
-        referralId: profile.referral_id,
+        referralId: profile.referral_code,
         referredBy: profile.referred_by || undefined,
         createdAt: profile.created_at,
       };
@@ -74,6 +78,34 @@ export const authService = {
       return { success: true, user, token };
     } catch (error) {
       console.error('[AUTH] Error verifying OTP:', error);
+      return { success: false, error: 'Failed to verify OTP' };
+    }
+  },
+
+  async verifyOTPSignup(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[AUTH] Verifying OTP for signup:', phone);
+      
+      const storedOTP = await AsyncStorage.getItem(`@heko_otp_${phone}`);
+      
+      if (storedOTP !== otp) {
+        return { success: false, error: 'Invalid OTP' };
+      }
+
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (existingProfile) {
+        return { success: false, error: 'Phone number already registered' };
+      }
+
+      await AsyncStorage.removeItem(`@heko_otp_${phone}`);
+      return { success: true };
+    } catch (error) {
+      console.error('[AUTH] Error verifying OTP for signup:', error);
       return { success: false, error: 'Failed to verify OTP' };
     }
   },
@@ -92,13 +124,13 @@ export const authService = {
         return { success: false, error: 'Phone number already registered' };
       }
 
-      const referralId = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const referralCode = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       const insertData: ProfileInsert = {
         name: data.name,
         phone: data.phone,
         email: data.email || null,
-        referral_id: referralId,
+        referral_code: referralCode,
         referred_by: data.referredBy || null,
         virtual_wallet: 0,
         actual_wallet: 0,
@@ -117,12 +149,23 @@ export const authService = {
 
       const newProfile = resultData as ProfileRow;
 
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: newProfile.id,
+          role: 'customer',
+        } as any);
+
+      if (roleError) {
+        console.error('[AUTH] Error creating user role:', roleError);
+      }
+
       const user: User = {
         id: newProfile.id,
         name: newProfile.name,
         phone: newProfile.phone,
         email: newProfile.email || undefined,
-        referralId: newProfile.referral_id,
+        referralId: newProfile.referral_code,
         referredBy: newProfile.referred_by || undefined,
         createdAt: newProfile.created_at,
       };

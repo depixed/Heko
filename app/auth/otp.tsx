@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
@@ -9,11 +9,15 @@ import { authService } from '@/lib/auth.service';
 
 export default function OTPScreen() {
   const router = useRouter();
-  const { phone, referralCode } = useLocalSearchParams<{ phone: string; mode: string; referralCode?: string }>();
+  const { phone, mode, referralCode } = useLocalSearchParams<{ phone: string; mode: 'login' | 'signup'; referralCode?: string }>();
   const { login } = useAuth();
   const [otp, setOtp] = useState('');
   const [countdown, setCountdown] = useState<number>(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ export default function OTPScreen() {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerifyOTP = async () => {
     if (otp.length !== APP_CONFIG.OTP.LENGTH) {
       Alert.alert('Invalid OTP', 'Please enter the complete OTP');
       return;
@@ -46,13 +50,23 @@ export default function OTPScreen() {
 
     setIsVerifying(true);
     try {
-      const result = await authService.verifyOTP(phone, otp);
-      
-      if (result.success && result.user && result.token) {
-        await login(result.user, result.token);
-        router.replace('/(tabs)/' as any);
+      if (mode === 'login') {
+        const result = await authService.verifyOTPLogin(phone, otp);
+        
+        if (result.success && result.user && result.token) {
+          await login(result.user, result.token);
+          router.replace('/(tabs)/' as any);
+        } else {
+          Alert.alert('Error', result.error || 'Failed to verify OTP');
+        }
       } else {
-        Alert.alert('Error', result.error || 'Failed to verify OTP');
+        const result = await authService.verifyOTPSignup(phone, otp);
+        
+        if (result.success) {
+          setOtpVerified(true);
+        } else {
+          Alert.alert('Error', result.error || 'Failed to verify OTP');
+        }
       }
     } catch (error) {
       console.error('[OTP] Error verifying OTP:', error);
@@ -62,11 +76,45 @@ export default function OTPScreen() {
     }
   };
 
+  const handleCreateAccount = async () => {
+    if (!name.trim()) {
+      Alert.alert('Invalid Name', 'Please enter your name');
+      return;
+    }
+
+    if (email && !email.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const result = await authService.signUp({
+        name: name.trim(),
+        phone,
+        email: email.trim() || undefined,
+        referredBy: referralCode || undefined,
+      });
+
+      if (result.success && result.user && result.token) {
+        await login(result.user, result.token);
+        router.replace('/(tabs)/' as any);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to create account');
+      }
+    } catch (error) {
+      console.error('[OTP] Error creating account:', error);
+      Alert.alert('Error', 'Failed to create account');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleResend = async () => {
     if (!phone) return;
     
     try {
-      const result = await authService.sendOTP(phone);
+      const result = await authService.sendOTP(phone, mode);
       if (result.success) {
         setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
         Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
@@ -78,6 +126,76 @@ export default function OTPScreen() {
       Alert.alert('Error', 'Failed to send OTP');
     }
   };
+
+  if (otpVerified && mode === 'signup') {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Complete Your Profile</Text>
+              <Text style={styles.subtitle}>
+                Tell us a bit about yourself
+              </Text>
+            </View>
+
+            <View style={styles.form}>
+              <View>
+                <Text style={styles.label}>Full Name *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter your full name"
+                  placeholderTextColor={Colors.text.tertiary}
+                  autoCapitalize="words"
+                  value={name}
+                  onChangeText={setName}
+                  testID="name-input"
+                />
+              </View>
+
+              <View>
+                <Text style={styles.label}>Email Address (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter your email"
+                  placeholderTextColor={Colors.text.tertiary}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                  testID="email-input"
+                />
+              </View>
+
+              {referralCode && (
+                <View style={styles.referralBadge}>
+                  <Text style={styles.referralText}>
+                    Referral Code: <Text style={styles.referralCode}>{referralCode}</Text>
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.button, name.trim() && !isCreating && styles.buttonActive]}
+                onPress={handleCreateAccount}
+                disabled={!name.trim() || isCreating}
+                testID="create-account-button"
+              >
+                {isCreating ? (
+                  <ActivityIndicator color={Colors.text.inverse} />
+                ) : (
+                  <Text style={styles.buttonText}>Create Account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -106,7 +224,7 @@ export default function OTPScreen() {
 
         <TouchableOpacity
           style={[styles.button, otp.length === APP_CONFIG.OTP.LENGTH && !isVerifying && styles.buttonActive]}
-          onPress={handleVerify}
+          onPress={handleVerifyOTP}
           disabled={otp.length !== APP_CONFIG.OTP.LENGTH || isVerifying}
           testID="verify-button"
         >
@@ -142,6 +260,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.primary,
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
@@ -160,6 +281,43 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     marginTop: 8,
     lineHeight: 24,
+  },
+  form: {
+    gap: 24,
+    paddingBottom: 40,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: Colors.text.primary,
+    backgroundColor: Colors.background.secondary,
+  },
+  referralBadge: {
+    backgroundColor: Colors.background.secondary,
+    borderWidth: 1,
+    borderColor: Colors.brand.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  referralText: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+  },
+  referralCode: {
+    fontWeight: '700' as const,
+    color: Colors.brand.primary,
   },
   otpContainer: {
     flexDirection: 'row',
