@@ -57,10 +57,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const sessionResult = await authService.getStoredSession();
       if (sessionResult && sessionResult.user && sessionResult.token) {
         if (!isValidUUID(sessionResult.user.id)) {
-          console.log('[AuthContext] Invalid user ID format (not UUID), clearing session and logging out');
-          await authService.logout();
-          setUser(null);
-          setToken(null);
+          console.log('[AuthContext] Invalid user ID format (not UUID), skipping Supabase data loading');
+          setUser(sessionResult.user);
+          setToken(sessionResult.token);
           setIsLoading(false);
           return;
         }
@@ -124,7 +123,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const { data: conversions } = await supabase
         .from('referral_conversions')
         .select('*')
-        .eq('referrer_id', userId)
+        .eq('referrer_user_id', userId)
         .order('created_at', { ascending: false });
 
       if (conversions) {
@@ -133,16 +132,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         thisMonth.setHours(0, 0, 0, 0);
 
         const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
-        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.commission_amount || 0) / 100), 0);
-        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.commission_amount || 0) / 100), 0);
+        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0) / 100), 0);
+        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0) / 100), 0);
 
         setReferralStats({
           totalReferred: conversions.length,
-          activeReferrers: conversions.filter((c: any) => c.is_converted).length,
+          activeReferrers: conversions.length,
           lifetimeEarnings,
           thisMonthEarnings,
-          convertedThisMonth: thisMonthConversions.filter((c: any) => c.is_converted).length,
-          lifetimeConverted: conversions.filter((c: any) => c.is_converted).length,
+          convertedThisMonth: thisMonthConversions.length,
+          lifetimeConverted: conversions.length,
           referrals: [],
         });
         console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
