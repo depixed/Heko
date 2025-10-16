@@ -104,7 +104,7 @@ The following Supabase tables are now ready:
 ### Phase 3 Tasks:
 
 #### 3.1 Update AuthContext
-- ✅ Already supports Supabase via `authService`
+- Already supports Supabase via `authService`
 - Add wallet balance sync from Supabase profiles
 - Add real-time profile updates
 
