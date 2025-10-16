@@ -2,12 +2,13 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'rea
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
-import { MOCK_CATEGORIES } from '@/mocks/data';
+import { useProducts } from '@/contexts/ProductContext';
 
 
 export default function CategoriesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { categories, isLoadingCategories } = useProducts();
 
   return (
     <View style={styles.container}>
@@ -17,7 +18,7 @@ export default function CategoriesScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
-          {MOCK_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <TouchableOpacity
               key={category.id}
               style={styles.categoryCard}

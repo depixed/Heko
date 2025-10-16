@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAddresses } from '@/contexts/AddressContext';
-import { MOCK_PRODUCTS } from '@/mocks/data';
+import { useProducts } from '@/contexts/ProductContext';
 import type { Product } from '@/types';
 
 export default function CartScreen() {
@@ -22,6 +22,7 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const { cart, updateCartItem, addToCart } = useAuth();
   const { getDefaultAddress } = useAddresses();
+  const { products } = useProducts();
 
   const defaultAddress = getDefaultAddress();
 
@@ -38,7 +39,7 @@ export default function CartScreen() {
   const totalPayable = priceDetails.price + priceDetails.deliveryFee;
   const totalSavings = priceDetails.itemDiscount;
 
-  const similarProducts = MOCK_PRODUCTS.filter(
+  const similarProducts = products.filter(
     (p) => !cart.some((item) => item.product.id === p.id)
   ).slice(0, 5);
 

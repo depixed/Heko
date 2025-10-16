@@ -2,13 +2,14 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'rea
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { MOCK_CATEGORIES } from '@/mocks/data';
+import { useProducts } from '@/contexts/ProductContext';
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { categories } = useProducts();
   
-  const category = MOCK_CATEGORIES.find(c => c.id === id);
+  const category = categories.find(c => c.id === id);
 
   if (!category) {
     return (

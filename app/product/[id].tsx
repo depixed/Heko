@@ -13,7 +13,7 @@ import { ChevronLeft, Truck, Package, MessageCircle, ChevronDown, ChevronUp, Min
 import { useState, useRef, useEffect } from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { MOCK_PRODUCTS } from '@/mocks/data';
+import { useProducts } from '@/contexts/ProductContext';
 import type { Product } from '@/types';
 
 const FEATURE_ICON_COLOR = '#8A4B36';
@@ -23,11 +23,12 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cart, addToCart, updateCartItem, cartTotal } = useAuth();
+  const { getProductById, getProductsByCategory } = useProducts();
 
-  const product = MOCK_PRODUCTS.find((p) => p.id === id);
-  const similarProducts = MOCK_PRODUCTS.filter(
-    (p) => p.category === product?.category && p.id !== id
-  ).slice(0, 5);
+  const product = getProductById(id as string);
+  const similarProducts = product
+    ? getProductsByCategory(product.category).filter((p) => p.id !== id).slice(0, 5)
+    : [];
 
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const descriptionHeight = useRef(new Animated.Value(0)).current;

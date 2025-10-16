@@ -5,13 +5,14 @@ import { MapPin, Bell, Search, Mic, ShoppingCart, Minus, Plus } from 'lucide-rea
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
-import { MOCK_CATEGORIES, MOCK_PRODUCTS, MOCK_BANNERS } from '@/mocks/data';
+import { useProducts } from '@/contexts/ProductContext';
 import { APP_CONFIG } from '@/constants/config';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { wallet, cartItemCount, cart, addToCart, updateCartItem } = useAuth();
   const { unreadCount } = useNotifications();
+  const { categories, products, isLoadingCategories, isLoadingProducts } = useProducts();
   const insets = useSafeAreaInsets();
 
   const handleAddToCart = (product: any) => {
@@ -71,22 +72,12 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannersContainer}>
-          {MOCK_BANNERS.map((banner) => (
-            <TouchableOpacity key={banner.id} style={styles.banner}>
-              <Image source={{ uri: banner.image }} style={styles.bannerImage} />
-              <View style={styles.bannerOverlay}>
-                <Text style={styles.bannerTitle}>{banner.title}</Text>
-                {banner.subtitle && <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Banners temporarily hidden - coming soon */}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Shop by Category</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-            {MOCK_CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <TouchableOpacity
                 key={category.id}
                 style={styles.categoryCard}
@@ -117,7 +108,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recommended for You</Text>
           <View style={styles.productsGrid}>
-            {MOCK_PRODUCTS.map((product) => {
+            {products.slice(0, 10).map((product) => {
               const cartItem = cart.find((item) => item.product.id === product.id);
               const qty = cartItem?.quantity || 0;
 
