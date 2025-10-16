@@ -15,7 +15,7 @@ export interface Address {
   type: 'home' | 'work' | 'other';
   otherLabel?: string;
   flat: string;
-  area: string;
+  area?: string;
   landmark?: string;
   city: string;
   state: string;

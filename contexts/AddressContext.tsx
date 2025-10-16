@@ -65,14 +65,14 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
     
     try {
       console.log('[AddressContext] Adding new address');
+      const flatWithArea = address.area ? `${address.flat}, ${address.area}` : address.flat;
       const result = await addressService.createAddress({
         user_id: user.id,
         name: address.name,
         phone: address.phone,
         type: address.type,
         other_label: address.otherLabel || null,
-        flat: address.flat,
-        area: address.area,
+        flat: flatWithArea,
         landmark: address.landmark || null,
         city: address.city,
         state: address.state,
@@ -99,8 +99,14 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       if (updates.phone !== undefined) updateData.phone = updates.phone;
       if (updates.type !== undefined) updateData.type = updates.type;
       if (updates.otherLabel !== undefined) updateData.other_label = updates.otherLabel;
-      if (updates.flat !== undefined) updateData.flat = updates.flat;
-      if (updates.area !== undefined) updateData.area = updates.area;
+      
+      if (updates.flat !== undefined || updates.area !== undefined) {
+        const existingAddress = addresses.find(a => a.id === id);
+        const flat = updates.flat !== undefined ? updates.flat : (existingAddress?.flat || '');
+        const area = updates.area !== undefined ? updates.area : (existingAddress?.area || '');
+        updateData.flat = area ? `${flat}, ${area}` : flat;
+      }
+      
       if (updates.landmark !== undefined) updateData.landmark = updates.landmark;
       if (updates.city !== undefined) updateData.city = updates.city;
       if (updates.state !== undefined) updateData.state = updates.state;
