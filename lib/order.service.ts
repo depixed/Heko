@@ -11,7 +11,7 @@ type AddressRow = Database['public']['Tables']['user_addresses']['Row'];
 
 export interface OrderWithRelations extends OrderRow {
   order_items?: (OrderItemRow & {
-    products?: Pick<ProductRow, 'name' | 'image' | 'unit'> | null;
+    products?: Pick<ProductRow, 'name' | 'images' | 'unit'> | null;
   })[];
   user_addresses?: AddressRow | null;
 }
@@ -109,7 +109,7 @@ export const orderService = {
           *,
           order_items(
             *,
-            products(name, image, unit)
+            products(name, images, unit)
           ),
           user_addresses(*)
         `)
@@ -158,7 +158,7 @@ export const orderService = {
           *,
           order_items(
             *,
-            products(name, image, unit)
+            products(name, images, unit)
           ),
           user_addresses(*)
         `)
