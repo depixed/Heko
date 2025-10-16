@@ -114,8 +114,7 @@ export interface Database {
           id: string;
           name: string;
           image: string;
-          sort_order: number;
-          is_active: boolean;
+          active: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -123,8 +122,7 @@ export interface Database {
           id?: string;
           name: string;
           image: string;
-          sort_order?: number;
-          is_active?: boolean;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -132,8 +130,7 @@ export interface Database {
           id?: string;
           name?: string;
           image?: string;
-          sort_order?: number;
-          is_active?: boolean;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -143,8 +140,7 @@ export interface Database {
           id: string;
           category_id: string;
           name: string;
-          sort_order: number;
-          is_active: boolean;
+          active: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -152,8 +148,7 @@ export interface Database {
           id?: string;
           category_id: string;
           name: string;
-          sort_order?: number;
-          is_active?: boolean;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -161,8 +156,7 @@ export interface Database {
           id?: string;
           category_id?: string;
           name?: string;
-          sort_order?: number;
-          is_active?: boolean;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -184,7 +178,7 @@ export interface Database {
           tags: string[];
           nutrition: string | null;
           ingredients: string | null;
-          is_active: boolean;
+          active: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -204,7 +198,7 @@ export interface Database {
           tags?: string[];
           nutrition?: string | null;
           ingredients?: string | null;
-          is_active?: boolean;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -224,7 +218,7 @@ export interface Database {
           tags?: string[];
           nutrition?: string | null;
           ingredients?: string | null;
-          is_active?: boolean;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
