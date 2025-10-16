@@ -47,32 +47,6 @@ export interface Database {
           updated_at?: string;
         };
       };
-      cart_items: {
-        Row: {
-          id: string;
-          user_id: string;
-          product_id: string;
-          quantity: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          product_id: string;
-          quantity: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          product_id?: string;
-          quantity?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
       user_addresses: {
         Row: {
           id: string;
