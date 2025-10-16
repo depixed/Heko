@@ -1,8 +1,10 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import type { User, Wallet, ReferralStats, Address, CartItem } from '@/types';
-import { MOCK_REFERRAL_STATS, MOCK_WALLET_TRANSACTIONS } from '@/mocks/data';
+import type { User, Wallet, ReferralStats, Address, CartItem, WalletTransaction } from '@/types';
+import { authService } from '@/lib/auth.service';
+import { walletService } from '@/lib/wallet.service';
+import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEYS = {
   USER: '@heko_user',
@@ -40,91 +42,211 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const loadStoredData = async () => {
     try {
-      const [storedUser, storedToken, storedWallet, storedReferralStats, storedAddresses, storedCart] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.USER),
-        AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
-        AsyncStorage.getItem(STORAGE_KEYS.WALLET),
-        AsyncStorage.getItem(STORAGE_KEYS.REFERRAL_STATS),
-        AsyncStorage.getItem(STORAGE_KEYS.ADDRESSES),
+      console.log('[AuthContext] Loading stored data');
+      const [storedCart] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CART),
       ]);
 
-      if (storedUser) setUser(JSON.parse(storedUser));
-      if (storedToken) setToken(storedToken);
-      
-      if (storedWallet) {
-        setWallet(JSON.parse(storedWallet));
-      } else {
-        const initialWallet = {
-          virtualBalance: 4175,
-          actualBalance: 555,
-          transactions: MOCK_WALLET_TRANSACTIONS,
-        };
-        setWallet(initialWallet);
-        await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(initialWallet));
-      }
-      
-      if (storedReferralStats) {
-        setReferralStats(JSON.parse(storedReferralStats));
-      } else {
-        const initialStats = MOCK_REFERRAL_STATS;
-        setReferralStats(initialStats);
-        await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(initialStats));
-      }
-      
-      if (storedAddresses) setAddresses(JSON.parse(storedAddresses));
       if (storedCart) setCart(JSON.parse(storedCart));
+
+      const sessionResult = await authService.getStoredSession();
+      if (sessionResult && sessionResult.user && sessionResult.token) {
+        console.log('[AuthContext] Found stored session, loading profile');
+        setUser(sessionResult.user);
+        setToken(sessionResult.token);
+        
+        await loadWalletData(sessionResult.user.id);
+        await loadReferralStats(sessionResult.user.id);
+        
+        setupRealtimeSubscriptions(sessionResult.user.id);
+      } else {
+        console.log('[AuthContext] No stored session found');
+      }
     } catch (error) {
-      console.error('Error loading stored data:', error);
+      console.error('[AuthContext] Error loading stored data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const loadWalletData = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Loading wallet data for user:', userId);
+      const balanceResult = await walletService.getWalletBalance(userId);
+      if (balanceResult.success && balanceResult.data) {
+        const transactionsResult = await walletService.getTransactions(userId, { limit: 50 });
+        
+        const dbTransactions = transactionsResult.success && transactionsResult.data ? transactionsResult.data : [];
+        const appTransactions: WalletTransaction[] = dbTransactions.map(txn => ({
+          id: txn.id,
+          type: txn.type.toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
+          amount: txn.amount / 100,
+          walletType: txn.wallet_type,
+          direction: txn.direction.toUpperCase() as 'CREDIT' | 'DEBIT',
+          kind: txn.kind.toUpperCase() as 'CASHBACK' | 'REFERRAL_CONVERSION' | 'REFUND' | 'REDEEM' | 'ADJUST',
+          orderId: txn.order_id || undefined,
+          refereeUserId: txn.referee_user_id || undefined,
+          conversionId: txn.conversion_id || undefined,
+          description: txn.description || '',
+          timestamp: txn.created_at,
+          balanceAfter: txn.balance_after / 100,
+        }));
+
+        setWallet({
+          virtualBalance: balanceResult.data.virtualBalance || 0,
+          actualBalance: balanceResult.data.actualBalance || 0,
+          transactions: appTransactions,
+        });
+        console.log('[AuthContext] Wallet loaded:', balanceResult.data.virtualBalance, balanceResult.data.actualBalance);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading wallet:', error);
+    }
+  };
+
+  const loadReferralStats = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Loading referral stats for user:', userId);
+      const { data: conversions } = await supabase
+        .from('referral_conversions')
+        .select('*')
+        .eq('referrer_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (conversions) {
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        thisMonth.setHours(0, 0, 0, 0);
+
+        const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
+        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.commission_amount || 0) / 100), 0);
+        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.commission_amount || 0) / 100), 0);
+
+        setReferralStats({
+          totalReferred: conversions.length,
+          activeReferrers: conversions.filter((c: any) => c.is_converted).length,
+          lifetimeEarnings,
+          thisMonthEarnings,
+          convertedThisMonth: thisMonthConversions.filter((c: any) => c.is_converted).length,
+          lifetimeConverted: conversions.filter((c: any) => c.is_converted).length,
+          referrals: [],
+        });
+        console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading referral stats:', error);
+    }
+  };
+
+  const setupRealtimeSubscriptions = (userId: string) => {
+    console.log('[AuthContext] Setting up real-time subscriptions for user:', userId);
+    
+    const profileSubscription = supabase
+      .channel(`profile-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('[AuthContext] Profile updated:', payload.new);
+          const profile = payload.new as any;
+          if (profile) {
+            setUser((prev) => prev ? {
+              ...prev,
+              name: profile.name,
+              email: profile.email,
+              phone: profile.phone,
+            } : null);
+            setWallet((prev) => ({
+              ...prev,
+              virtualBalance: profile.virtual_wallet || 0,
+              actualBalance: profile.actual_wallet || 0,
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    const walletSubscription = supabase
+      .channel(`wallet-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'wallet_transactions',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('[AuthContext] New wallet transaction:', payload.new);
+          loadWalletData(userId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      profileSubscription.unsubscribe();
+      walletSubscription.unsubscribe();
+    };
+  };
+
   const login = useCallback(async (userData: User, authToken: string) => {
+    console.log('[AuthContext] Logging in user:', userData.id);
     setUser(userData);
     setToken(authToken);
-    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
     
-    if (!referralStats.totalReferred) {
-      const initialStats = MOCK_REFERRAL_STATS;
-      setReferralStats(initialStats);
-      await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(initialStats));
-    }
-    
-    if (wallet.transactions.length === 0) {
-      const initialWallet = {
-        virtualBalance: 4175,
-        actualBalance: 555,
-        transactions: MOCK_WALLET_TRANSACTIONS,
-      };
-      setWallet(initialWallet);
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(initialWallet));
-    }
-  }, [referralStats.totalReferred, wallet.transactions.length]);
+    await loadWalletData(userData.id);
+    await loadReferralStats(userData.id);
+    setupRealtimeSubscriptions(userData.id);
+  }, []);
 
   const logout = useCallback(async () => {
+    console.log('[AuthContext] Logging out');
+    await authService.logout();
     setUser(null);
     setToken(null);
-    await AsyncStorage.multiRemove([STORAGE_KEYS.USER, STORAGE_KEYS.TOKEN]);
+    setWallet({
+      virtualBalance: 0,
+      actualBalance: 0,
+      transactions: [],
+    });
+    setReferralStats({
+      totalReferred: 0,
+      activeReferrers: 0,
+      lifetimeEarnings: 0,
+      thisMonthEarnings: 0,
+      convertedThisMonth: 0,
+      lifetimeConverted: 0,
+      referrals: [],
+    });
   }, []);
 
   const updateUser = useCallback(async (updates: Partial<User>) => {
     if (!user) return;
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+    console.log('[AuthContext] Updating user profile:', updates);
+    const result = await authService.updateProfile(user.id, updates);
+    if (result.success) {
+      const updatedUser: User = {
+        ...user,
+        ...updates,
+      };
+      setUser(updatedUser);
+      console.log('[AuthContext] User profile updated successfully');
+    }
   }, [user]);
 
   const updateWallet = useCallback(async (newWallet: Wallet) => {
+    console.log('[AuthContext] Updating wallet (local only)');
     setWallet(newWallet);
-    await AsyncStorage.setItem(STORAGE_KEYS.WALLET, JSON.stringify(newWallet));
   }, []);
 
   const updateReferralStats = useCallback(async (newStats: ReferralStats) => {
+    console.log('[AuthContext] Updating referral stats (local only)');
     setReferralStats(newStats);
-    await AsyncStorage.setItem(STORAGE_KEYS.REFERRAL_STATS, JSON.stringify(newStats));
   }, []);
 
   const addAddress = useCallback(async (address: Address) => {
