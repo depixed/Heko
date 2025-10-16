@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AddressProvider } from "@/contexts/AddressContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProductProvider } from "@/contexts/ProductContext";
+import { OrderProvider } from "@/contexts/OrderContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,11 +43,13 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
           <ProductProvider>
-            <AddressProvider>
-              <NotificationProvider>
-                <RootLayoutNav />
-              </NotificationProvider>
-            </AddressProvider>
+            <OrderProvider>
+              <AddressProvider>
+                <NotificationProvider>
+                  <RootLayoutNav />
+                </NotificationProvider>
+              </AddressProvider>
+            </OrderProvider>
           </ProductProvider>
         </AuthProvider>
       </GestureHandlerRootView>
