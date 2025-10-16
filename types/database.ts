@@ -64,7 +64,6 @@ export interface Database {
           lat: number | null;
           lng: number | null;
           is_default: boolean;
-          is_serviceable: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -84,7 +83,6 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           is_default?: boolean;
-          is_serviceable?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -104,7 +102,6 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           is_default?: boolean;
-          is_serviceable?: boolean;
           created_at?: string;
           updated_at?: string;
         };

@@ -40,7 +40,6 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
           state: addr.state,
           pincode: addr.pincode,
           isDefault: addr.is_default,
-          isServiceable: addr.is_serviceable,
         }));
         setAddresses(appAddresses);
         console.log('[AddressContext] Addresses loaded:', appAddresses.length);
@@ -77,7 +76,6 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
         state: address.state,
         pincode: address.pincode,
         is_default: address.isDefault,
-        is_serviceable: address.isServiceable !== false,
       });
       
       if (result.success) {
@@ -110,7 +108,6 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       if (updates.city !== undefined) updateData.city = updates.city;
       if (updates.state !== undefined) updateData.state = updates.state;
       if (updates.pincode !== undefined) updateData.pincode = updates.pincode;
-      if (updates.isServiceable !== undefined) updateData.is_serviceable = updates.isServiceable;
       if (updates.isDefault !== undefined) updateData.is_default = updates.isDefault;
       
       const result = await addressService.updateAddress(id, updateData);

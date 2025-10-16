@@ -86,7 +86,6 @@ export const addressService = {
         lat: addressData.lat || null,
         lng: addressData.lng || null,
         is_default: addressData.is_default || false,
-        is_serviceable: addressData.is_serviceable !== false,
       };
 
       console.log('[ADDRESS] Inserting data:', JSON.stringify(insertData, null, 2));
