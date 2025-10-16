@@ -1,25 +1,53 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
-import { MOCK_ORDERS } from '@/mocks/data';
-import { ORDER_STATUS } from '@/constants/config';
+import { useOrders } from '@/contexts/OrderContext';
+import type { Database } from '@/types/database';
+
+type OrderStatus = Database['public']['Tables']['orders']['Row']['status'];
 
 export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { orders, isLoadingOrders } = useOrders();
 
-  const getStatusColor = (status: keyof typeof ORDER_STATUS) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case 'DELIVERED':
+      case 'delivered':
         return Colors.status.success;
-      case 'OUT_FOR_DELIVERY':
+      case 'out_for_delivery':
         return Colors.status.info;
-      case 'CANCELED':
-      case 'UNFULFILLABLE':
+      case 'canceled':
+      case 'unfulfillable':
         return Colors.status.error;
       default:
         return Colors.status.warning;
+    }
+  };
+
+  const getStatusLabel = (status: OrderStatus) => {
+    switch (status) {
+      case 'processing':
+        return 'Processing';
+      case 'preparing':
+        return 'Preparing';
+      case 'out_for_delivery':
+        return 'Out for Delivery';
+      case 'delivered':
+        return 'Delivered';
+      case 'partially_delivered':
+        return 'Partially Delivered';
+      case 'unfulfillable':
+        return 'Unfulfillable';
+      case 'canceled':
+        return 'Canceled';
+      case 'return_in_progress':
+        return 'Return in Progress';
+      case 'returned':
+        return 'Returned';
+      default:
+        return status;
     }
   };
 
@@ -30,7 +58,11 @@ export default function OrdersScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {MOCK_ORDERS.length === 0 ? (
+        {isLoadingOrders ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.brand.primary} />
+          </View>
+        ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>📦</Text>
             <Text style={styles.emptyTitle}>No orders yet</Text>
@@ -38,44 +70,47 @@ export default function OrdersScreen() {
           </View>
         ) : (
           <View style={styles.ordersList}>
-            {MOCK_ORDERS.map((order) => (
+            {orders.map((order) => (
               <TouchableOpacity
                 key={order.id}
                 style={styles.orderCard}
                 onPress={() => router.push(`/order/${order.id}` as any)}
               >
                 <View style={styles.orderHeader}>
-                  <Text style={styles.orderId}>Order #{order.id}</Text>
+                  <Text style={styles.orderId}>Order #{order.id.slice(0, 8)}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-                    <Text style={styles.statusText}>{ORDER_STATUS[order.status]}</Text>
+                    <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
                   </View>
                 </View>
 
                 <View style={styles.orderItems}>
-                  {order.items.slice(0, 2).map((item, index) => (
+                  {(order.order_items || []).slice(0, 2).map((item, index) => (
                     <View key={index} style={styles.orderItem}>
-                      <Image source={{ uri: item.product.image }} style={styles.itemImage} />
+                      <Image 
+                        source={{ uri: item.products?.image || 'https://via.placeholder.com/48' }} 
+                        style={styles.itemImage} 
+                      />
                       <View style={styles.itemInfo}>
-                        <Text style={styles.itemName} numberOfLines={1}>{item.product.name}</Text>
+                        <Text style={styles.itemName} numberOfLines={1}>{item.products?.name || 'Product'}</Text>
                         <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
                       </View>
                     </View>
                   ))}
-                  {order.items.length > 2 && (
-                    <Text style={styles.moreItems}>+{order.items.length - 2} more items</Text>
+                  {(order.order_items?.length || 0) > 2 && (
+                    <Text style={styles.moreItems}>+{(order.order_items?.length || 0) - 2} more items</Text>
                   )}
                 </View>
 
                 <View style={styles.orderFooter}>
                   <View>
                     <Text style={styles.orderDate}>
-                      {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                      {new Date(order.created_at).toLocaleDateString('en-IN', {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
                       })}
                     </Text>
-                    <Text style={styles.orderTotal}>₹{order.total.toFixed(2)}</Text>
+                    <Text style={styles.orderTotal}>₹{(order.total / 100).toFixed(2)}</Text>
                   </View>
                   <Text style={styles.viewDetails}>View Details →</Text>
                 </View>
@@ -127,6 +162,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text.tertiary,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
   },
   ordersList: {
     padding: 16,

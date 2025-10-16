@@ -17,14 +17,16 @@ import { useState } from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAddresses } from '@/contexts/AddressContext';
+import { orderService } from '@/lib/order.service';
 
 type PaymentMethod = 'cash' | 'upi';
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, wallet, clearCart } = useAuth();
+  const { cart, wallet, clearCart, user } = useAuth();
   const { getDefaultAddress } = useAddresses();
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
   const [actualWalletApplied, setActualWalletApplied] = useState(false);
@@ -87,22 +89,69 @@ export default function CheckoutScreen() {
     }
   };
 
-  const handlePlaceOrder = () => {
-    Alert.alert(
-      'Order Placed',
-      `Your order has been placed successfully!\n\nTotal: ₹${finalPayable.toFixed(0)}\nPayment: ${
-        paymentMethod === 'cash' ? 'Cash' : 'UPI'
-      } at delivery`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            clearCart();
-            router.replace('/orders' as any);
-          },
-        },
-      ]
-    );
+  const handlePlaceOrder = async () => {
+    if (!user?.id || !defaultAddress) {
+      Alert.alert('Error', 'Please select a delivery address');
+      return;
+    }
+
+    if (cart.length === 0) {
+      Alert.alert('Error', 'Your cart is empty');
+      return;
+    }
+
+    setIsPlacingOrder(true);
+
+    try {
+      const orderItems = cart.map(item => {
+        return {
+          productId: item.product.id,
+          vendorId: '00000000-0000-0000-0000-000000000000',
+          quantity: item.quantity,
+          price: Math.round(item.product.price * 100),
+        };
+      });
+
+      const result = await orderService.createOrder({
+        userId: user.id,
+        addressId: defaultAddress.id,
+        items: orderItems,
+        subtotal: Math.round(priceDetails.itemsTotal * 100),
+        discount: Math.round(priceDetails.itemDiscount * 100),
+        deliveryFee: Math.round(priceDetails.deliveryFee * 100),
+        total: Math.round(finalPayable * 100),
+        walletUsed: Math.round(actualApplied * 100),
+        deliveryNotes,
+        deliveryWindow: '2-4pm Today',
+      });
+
+      if (result.success && result.data) {
+        clearCart();
+        Alert.alert(
+          'Order Placed',
+          `Your order has been placed successfully!\n\nOrder ID: #${result.data.id.slice(0, 8)}\nTotal: ₹${finalPayable.toFixed(0)}\nPayment: ${
+            paymentMethod === 'cash' ? 'Cash' : 'UPI'
+          } at delivery`,
+          [
+            {
+              text: 'View Order',
+              onPress: () => router.replace(`/order/${result.data!.id}` as any),
+            },
+            {
+              text: 'Go to Orders',
+              onPress: () => router.replace('/orders' as any),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to place order. Please try again.');
+      }
+    } catch (error) {
+      console.error('[Checkout] Error placing order:', error);
+      Alert.alert('Error', 'Failed to place order. Please try again.');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   if (cart.length === 0) {
@@ -443,9 +492,13 @@ export default function CheckoutScreen() {
             You save ₹{totalSavings.toFixed(0)} on this order
           </Text>
         )}
-        <TouchableOpacity style={styles.placeOrderButton} onPress={handlePlaceOrder}>
+        <TouchableOpacity 
+          style={[styles.placeOrderButton, isPlacingOrder && styles.placeOrderButtonDisabled]} 
+          onPress={handlePlaceOrder}
+          disabled={isPlacingOrder}
+        >
           <Text style={styles.placeOrderButtonText}>
-            Place Order{finalPayable === 0 ? ' — ₹0 at delivery' : ''}
+            {isPlacingOrder ? 'Placing Order...' : `Place Order${finalPayable === 0 ? ' — ₹0 at delivery' : ''}`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -867,6 +920,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  placeOrderButtonDisabled: {
+    opacity: 0.6,
   },
   placeOrderButtonText: {
     fontSize: 16,

@@ -6,79 +6,106 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
-  Linking,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useState } from 'react';
-import { ChevronLeft, Bell, HelpCircle, ChevronDown, ChevronUp, Copy, Maximize2, Phone, MapPin, Download } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import { ChevronLeft, Bell, HelpCircle, ChevronDown, ChevronUp, Copy, Maximize2, Download } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Colors from '@/constants/colors';
-import { MOCK_ORDERS } from '@/mocks/data';
-import { ORDER_STATUS } from '@/constants/config';
+import { useOrders } from '@/contexts/OrderContext';
+import type { OrderWithRelations } from '@/lib/order.service';
+import type { Database } from '@/types/database';
+
+type OrderStatus = Database['public']['Tables']['orders']['Row']['status'];
 
 export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { getOrderById } = useOrders();
+  
+  const [order, setOrder] = useState<OrderWithRelations | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [otpVisible, setOtpVisible] = useState(false);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [itemsExpanded, setItemsExpanded] = useState(false);
 
-  const order = MOCK_ORDERS.find((o) => o.id === id);
+  useEffect(() => {
+    loadOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-  if (!order) {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Order not found</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  const loadOrder = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    const orderData = await getOrderById(id);
+    setOrder(orderData);
+    setIsLoading(false);
+  };
 
-  const getStatusColor = (status: keyof typeof ORDER_STATUS) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case 'DELIVERED':
+      case 'delivered':
         return Colors.status.success;
-      case 'OUT_FOR_DELIVERY':
+      case 'out_for_delivery':
         return Colors.status.info;
-      case 'CANCELED':
-      case 'UNFULFILLABLE':
+      case 'canceled':
+      case 'unfulfillable':
         return Colors.status.error;
       default:
         return Colors.status.warning;
     }
   };
 
+  const getStatusLabel = (status: OrderStatus) => {
+    switch (status) {
+      case 'processing':
+        return 'Processing';
+      case 'preparing':
+        return 'Preparing';
+      case 'out_for_delivery':
+        return 'Out for Delivery';
+      case 'delivered':
+        return 'Delivered';
+      case 'partially_delivered':
+        return 'Partially Delivered';
+      case 'unfulfillable':
+        return 'Unfulfillable';
+      case 'canceled':
+        return 'Canceled';
+      case 'return_in_progress':
+        return 'Return in Progress';
+      case 'returned':
+        return 'Returned';
+      default:
+        return status;
+    }
+  };
+
   const getStatusSubtext = () => {
+    if (!order) return '';
+    
     switch (order.status) {
-      case 'PROCESSING':
+      case 'processing':
         return 'Your order is being processed';
-      case 'PREPARING':
-        return order.deliveryWindow ? `Estimated delivery ${order.deliveryWindow}` : 'Estimated delivery today 2-4pm';
-      case 'OUT_FOR_DELIVERY':
+      case 'preparing':
+        return order.delivery_window ? `Estimated delivery ${order.delivery_window}` : 'Estimated delivery today 2-4pm';
+      case 'out_for_delivery':
         return 'Partner is on the way';
-      case 'DELIVERED':
-        const deliveredTime = order.timeline.find((t) => t.status === 'Delivered');
-        return deliveredTime
-          ? `Delivered on ${new Date(deliveredTime.timestamp).toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })} at ${new Date(deliveredTime.timestamp).toLocaleTimeString('en-IN', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}`
-          : 'Order delivered';
-      case 'CANCELED':
+      case 'delivered':
+        return `Delivered on ${new Date(order.updated_at).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })} at ${new Date(order.updated_at).toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`;
+      case 'canceled':
         return 'Order was canceled';
-      case 'UNFULFILLABLE':
+      case 'unfulfillable':
         return 'Unable to fulfill this order';
       default:
         return '';
@@ -86,8 +113,8 @@ export default function OrderDetailsScreen() {
   };
 
   const copyOtp = async () => {
-    if (order.deliveryOtp) {
-      await Clipboard.setStringAsync(order.deliveryOtp);
+    if (order?.delivery_otp) {
+      await Clipboard.setStringAsync(order.delivery_otp);
       Alert.alert('Copied', 'OTP copied to clipboard');
     }
   };
@@ -96,20 +123,7 @@ export default function OrderDetailsScreen() {
     setOtpModalVisible(true);
   };
 
-  const callPartner = () => {
-    if (Platform.OS === 'web') {
-      Alert.alert('Call Partner', 'Phone calling is not available on web');
-    } else {
-      Alert.alert('Call Partner', 'Would you like to call the delivery partner?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Call', onPress: () => Linking.openURL('tel:+919876543210') },
-      ]);
-    }
-  };
 
-  const trackOrder = () => {
-    Alert.alert('Track Order', 'Live tracking will be available soon');
-  };
 
   const cancelOrder = () => {
     Alert.alert(
@@ -126,9 +140,7 @@ export default function OrderDetailsScreen() {
     );
   };
 
-  const requestReturn = () => {
-    Alert.alert('Request Return', 'Return request feature will be available soon');
-  };
+
 
   const downloadInvoice = () => {
     Alert.alert('Download Invoice', 'Invoice download will be available soon');
@@ -142,9 +154,34 @@ export default function OrderDetailsScreen() {
     );
   };
 
-  const showOFDActions = order.status === 'OUT_FOR_DELIVERY';
-  const showDeliveredActions = order.status === 'DELIVERED';
-  const canCancel = order.status !== 'OUT_FOR_DELIVERY' && order.status !== 'DELIVERED' && order.status !== 'CANCELED';
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.brand.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!order) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Order not found</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const showOFDActions = order.status === 'out_for_delivery';
+  const showDeliveredActions = order.status === 'delivered';
+  const canCancel = order.status !== 'out_for_delivery' && order.status !== 'delivered' && order.status !== 'canceled';
 
   return (
     <View style={styles.container}>
@@ -168,16 +205,16 @@ export default function OrderDetailsScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.statusCard}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-            <Text style={styles.statusText}>{ORDER_STATUS[order.status]}</Text>
+            <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
           </View>
           <Text style={styles.statusSubtext}>{getStatusSubtext()}</Text>
         </View>
 
-        {order.status === 'OUT_FOR_DELIVERY' && order.deliveryOtp && (
+        {order.status === 'out_for_delivery' && order.delivery_otp && (
           <View style={styles.otpCard}>
             <Text style={styles.otpLabel}>Delivery OTP</Text>
             <TouchableOpacity onPress={() => setOtpVisible(!otpVisible)}>
-              <Text style={styles.otpValue}>{otpVisible ? order.deliveryOtp : '••••••'}</Text>
+              <Text style={styles.otpValue}>{otpVisible ? order.delivery_otp : '••••••'}</Text>
             </TouchableOpacity>
             <Text style={styles.otpInstruction}>
               Share this OTP with the delivery partner to complete delivery.
@@ -200,48 +237,28 @@ export default function OrderDetailsScreen() {
           </View>
         )}
 
-        {order.deliveryPartner && showOFDActions && (
-          <View style={styles.partnerCard}>
-            <View style={styles.partnerInfo}>
-              <View style={styles.partnerAvatar}>
-                <Text style={styles.partnerAvatarText}>{order.deliveryPartner.charAt(0)}</Text>
-              </View>
-              <View style={styles.partnerDetails}>
-                <Text style={styles.partnerName}>{order.deliveryPartner}</Text>
-                <Text style={styles.partnerLabel}>Delivery Partner</Text>
-              </View>
+        {order.user_addresses && (
+          <View style={styles.addressCard}>
+            <View style={styles.addressHeader}>
+              <Text style={styles.addressLabel}>
+                Delivering to {order.user_addresses.type.charAt(0).toUpperCase() + order.user_addresses.type.slice(1)}
+              </Text>
             </View>
-            <View style={styles.partnerActions}>
-              <TouchableOpacity style={styles.partnerActionButton} onPress={callPartner}>
-                <Phone size={18} color={Colors.brand.primary} />
-                <Text style={styles.partnerActionText}>Call</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.partnerActionButton} onPress={trackOrder}>
-                <MapPin size={18} color={Colors.brand.primary} />
-                <Text style={styles.partnerActionText}>Track</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.addressText}>
+              {order.user_addresses.flat}, {order.user_addresses.area}
+              {order.user_addresses.landmark ? `, ${order.user_addresses.landmark}` : ''}
+              {'\n'}
+              {order.user_addresses.city}, {order.user_addresses.state} - {order.user_addresses.pincode}
+            </Text>
           </View>
         )}
-
-        <View style={styles.addressCard}>
-          <View style={styles.addressHeader}>
-            <Text style={styles.addressLabel}>Delivering to {order.address.type}</Text>
-          </View>
-          <Text style={styles.addressText}>
-            {order.address.flat}, {order.address.area}
-            {order.address.landmark ? `, ${order.address.landmark}` : ''}
-            {'\n'}
-            {order.address.city} - {order.address.pincode}
-          </Text>
-        </View>
 
         <View style={styles.itemsCard}>
           <TouchableOpacity
             style={styles.itemsHeader}
             onPress={() => setItemsExpanded(!itemsExpanded)}
           >
-            <Text style={styles.itemsTitle}>Items ({order.items.length})</Text>
+            <Text style={styles.itemsTitle}>Items ({order.order_items?.length || 0})</Text>
             {itemsExpanded ? (
               <ChevronUp size={20} color={Colors.text.secondary} />
             ) : (
@@ -250,13 +267,13 @@ export default function OrderDetailsScreen() {
           </TouchableOpacity>
           {itemsExpanded && (
             <View style={styles.itemsList}>
-              {order.items.map((item, index) => (
+              {(order.order_items || []).map((item, index) => (
                 <View key={index} style={styles.itemRow}>
                   <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.product.name}</Text>
+                    <Text style={styles.itemName}>{item.products?.name || 'Product'}</Text>
                     <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
                   </View>
-                  <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>₹{((item.price * item.quantity) / 100).toFixed(2)}</Text>
                 </View>
               ))}
             </View>
@@ -266,39 +283,39 @@ export default function OrderDetailsScreen() {
         <View style={styles.paymentCard}>
           <Text style={styles.paymentTitle}>Payment Details</Text>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Items Total ({order.items.length})</Text>
-            <Text style={styles.paymentValue}>₹{order.subtotal.toFixed(2)}</Text>
+            <Text style={styles.paymentLabel}>Items Total ({order.order_items?.length || 0})</Text>
+            <Text style={styles.paymentValue}>₹{(order.subtotal / 100).toFixed(2)}</Text>
           </View>
           {order.discount > 0 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Item Discount</Text>
               <Text style={[styles.paymentValue, styles.discountText]}>
-                -₹{order.discount.toFixed(2)}
+                -₹{(order.discount / 100).toFixed(2)}
               </Text>
             </View>
           )}
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Delivery Fee</Text>
             <Text style={styles.paymentValue}>
-              {order.deliveryFee === 0 ? 'Free' : `₹${order.deliveryFee.toFixed(2)}`}
+              {order.delivery_fee === 0 ? 'Free' : `₹${(order.delivery_fee / 100).toFixed(2)}`}
             </Text>
           </View>
-          {order.walletUsed > 0 && (
+          {order.wallet_used > 0 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Wallet Applied (Actual)</Text>
               <Text style={[styles.paymentValue, styles.discountText]}>
-                -₹{order.walletUsed.toFixed(2)}
+                -₹{(order.wallet_used / 100).toFixed(2)}
               </Text>
             </View>
           )}
           <View style={styles.paymentDivider} />
           <View style={styles.paymentRow}>
             <Text style={styles.paymentTotalLabel}>
-              {order.status === 'DELIVERED' ? 'Total Paid' : 'Total Payable at Delivery'}
+              {order.status === 'delivered' ? 'Total Paid' : 'Total Payable at Delivery'}
             </Text>
-            <Text style={styles.paymentTotalValue}>₹{order.total.toFixed(2)}</Text>
+            <Text style={styles.paymentTotalValue}>₹{(order.total / 100).toFixed(2)}</Text>
           </View>
-          {order.status !== 'DELIVERED' && (
+          {order.status !== 'delivered' && (
             <Text style={styles.paymentNote}>Pay cash or UPI to the delivery partner.</Text>
           )}
         </View>
@@ -307,18 +324,18 @@ export default function OrderDetailsScreen() {
           <Text style={styles.metaTitle}>Order Information</Text>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Order ID</Text>
-            <Text style={styles.metaValue}>#{order.id}</Text>
+            <Text style={styles.metaValue}>#{order.id.slice(0, 8)}</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Placed On</Text>
             <Text style={styles.metaValue}>
-              {new Date(order.createdAt).toLocaleDateString('en-IN', {
+              {new Date(order.created_at).toLocaleDateString('en-IN', {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
               })}{' '}
               at{' '}
-              {new Date(order.createdAt).toLocaleTimeString('en-IN', {
+              {new Date(order.created_at).toLocaleTimeString('en-IN', {
                 hour: '2-digit',
                 minute: '2-digit',
               })}
@@ -336,9 +353,9 @@ export default function OrderDetailsScreen() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.bottomBarLeft}>
           <Text style={styles.bottomBarLabel}>
-            {order.status === 'DELIVERED' ? 'Total Paid' : 'Total Payable'}
+            {order.status === 'delivered' ? 'Total Paid' : 'Total Payable'}
           </Text>
-          <Text style={styles.bottomBarValue}>₹{order.total.toFixed(2)}</Text>
+          <Text style={styles.bottomBarValue}>₹{(order.total / 100).toFixed(2)}</Text>
         </View>
         <View style={styles.bottomBarRight}>
           {showOFDActions && (
@@ -373,7 +390,7 @@ export default function OrderDetailsScreen() {
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Delivery OTP</Text>
-            <Text style={styles.modalOtp}>{order.deliveryOtp}</Text>
+            <Text style={styles.modalOtp}>{order.delivery_otp}</Text>
             <Text style={styles.modalInstruction}>
               Share this OTP with the delivery partner
             </Text>
@@ -391,6 +408,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.secondary,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -482,62 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.text.tertiary,
     fontStyle: 'italic',
-  },
-  partnerCard: {
-    backgroundColor: Colors.background.primary,
-    padding: 16,
-    marginBottom: 12,
-  },
-  partnerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  partnerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  partnerAvatarText: {
-    fontSize: 20,
-    fontWeight: '600' as const,
-    color: Colors.text.inverse,
-  },
-  partnerDetails: {
-    flex: 1,
-  },
-  partnerName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  partnerLabel: {
-    fontSize: 12,
-    color: Colors.text.tertiary,
-  },
-  partnerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  partnerActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.brand.primary,
-  },
-  partnerActionText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.brand.primary,
   },
   addressCard: {
     backgroundColor: Colors.background.primary,
@@ -719,15 +685,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text.inverse,
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.brand.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 8,
   },
   cancelButton: {
     borderWidth: 1,
