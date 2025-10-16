@@ -61,7 +61,7 @@ export const authService = {
         name: profile.name,
         phone: profile.phone,
         email: profile.email || undefined,
-        referralId: profile.referral_id,
+        referralId: profile.referral_id || profile.id,
         referredBy: profile.referred_by || undefined,
         createdAt: profile.created_at,
       };
@@ -92,47 +92,24 @@ export const authService = {
         return { success: false, error: 'Phone number already registered' };
       }
 
-      let referrerUserId: string | null = null;
-      if (data.referredBy && data.referredBy.trim()) {
-        console.log('[AUTH] Looking up referrer by code:', data.referredBy);
-        const { data: referrerProfile, error: referrerError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('referral_id', data.referredBy.trim().toUpperCase())
-          .maybeSingle();
+      console.log('[AUTH] Referral code provided:', data.referredBy || 'none');
 
-        if (referrerError) {
-          console.error('[AUTH] Error looking up referrer:', referrerError);
-          return { success: false, error: 'Failed to validate referral code. Please try again.' };
-        }
-
-        if (!referrerProfile) {
-          return { success: false, error: 'Invalid referral code. Please check and try again.' };
-        }
-
-        referrerUserId = (referrerProfile as { id: string }).id;
-        console.log('[AUTH] Found referrer user ID:', referrerUserId);
-      } else {
-        console.log('[AUTH] No referral code provided, creating user without referrer');
-      }
-
-      const referralId = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-      const insertData: ProfileInsert = {
+      const insertData: any = {
         name: data.name,
         phone: data.phone,
         email: data.email || null,
-        referral_id: referralId,
-        referred_by: referrerUserId,
         virtual_wallet: 0,
         actual_wallet: 0,
       };
+
+      if (data.referredBy && data.referredBy.trim()) {
+        insertData.referred_by = data.referredBy.trim();
+      }
 
       console.log('[AUTH] Insert data:', JSON.stringify(insertData, null, 2));
 
       const { data: resultData, error } = await supabase
         .from('profiles')
-        // @ts-expect-error - Supabase type inference issue with generated types
         .insert(insertData)
         .select()
         .single();
