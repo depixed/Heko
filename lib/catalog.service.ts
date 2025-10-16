@@ -28,7 +28,7 @@ export const catalogService = {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .eq('active', true)
+        .eq('status', 'active')
         .order('name', { ascending: true });
 
       if (error) {
@@ -51,7 +51,7 @@ export const catalogService = {
       let query = supabase
         .from('subcategories')
         .select('*')
-        .eq('active', true)
+        .eq('status', 'active')
         .order('name', { ascending: true });
 
       if (categoryId) {
@@ -84,7 +84,7 @@ export const catalogService = {
           categories(name),
           subcategories(name)
         `)
-        .eq('active', true);
+        .eq('status', 'active');
 
       if (filters?.categoryId) {
         query = query.eq('category_id', filters.categoryId);
@@ -170,7 +170,7 @@ export const catalogService = {
           categories(name),
           subcategories(name)
         `)
-        .eq('active', true)
+        .eq('status', 'active')
         .or(`name.ilike.%${query}%,tags.cs.{${query}}`)
         .order('name', { ascending: true })
         .limit(50);
