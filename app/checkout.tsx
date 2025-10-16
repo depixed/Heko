@@ -13,9 +13,10 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { ChevronLeft, ChevronDown, ChevronUp, Home, Briefcase, MapPin } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { useAddresses } from '@/contexts/AddressContext';
 
 type PaymentMethod = 'cash' | 'upi';
@@ -23,7 +24,8 @@ type PaymentMethod = 'cash' | 'upi';
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, wallet, clearCart } = useAuth();
+  const { user, wallet } = useAuth();
+  const { cart, clearCart } = useCart();
   const { getDefaultAddress } = useAddresses();
 
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
@@ -37,7 +39,7 @@ export default function CheckoutScreen() {
 
   const defaultAddress = getDefaultAddress();
 
-  const priceDetails = {
+  const priceDetails = useMemo(() => ({
     itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
     itemsTotal: cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
     itemDiscount: cart.reduce(
@@ -45,7 +47,7 @@ export default function CheckoutScreen() {
       0
     ),
     deliveryFee: 0,
-  };
+  }), [cart]);
 
   const subtotal = priceDetails.itemsTotal + priceDetails.deliveryFee;
 
@@ -87,23 +89,77 @@ export default function CheckoutScreen() {
     }
   };
 
-  const handlePlaceOrder = () => {
-    Alert.alert(
-      'Order Placed',
-      `Your order has been placed successfully!\n\nTotal: ₹${finalPayable.toFixed(0)}\nPayment: ${
-        paymentMethod === 'cash' ? 'Cash' : 'UPI'
-      } at delivery`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            clearCart();
-            router.replace('/orders' as any);
+  const handlePlaceOrder = useCallback(async () => {
+    if (!user?.id || !defaultAddress) {
+      Alert.alert('Error', 'Please select a delivery address');
+      return;
+    }
+
+    if (cart.length === 0) {
+      Alert.alert('Error', 'Your cart is empty');
+      return;
+    }
+
+    try {
+      const { orderService } = await import('@/lib/order.service');
+      const { walletService } = await import('@/lib/wallet.service');
+
+      const orderData = {
+        userId: user.id,
+        addressId: defaultAddress.id,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          vendorId: 'default-vendor',
+          quantity: item.quantity,
+          price: item.product.price,
+        })),
+        subtotal: priceDetails.itemsTotal,
+        discount: priceDetails.itemDiscount,
+        deliveryFee: priceDetails.deliveryFee,
+        total: finalPayable,
+        walletUsed: actualApplied,
+        deliveryNotes,
+        deliveryWindow: undefined,
+      };
+
+      const result = await orderService.createOrder(orderData);
+
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Failed to place order');
+        return;
+      }
+
+      if (actualApplied > 0 && result.data?.id) {
+        await walletService.redeemWallet(user.id, actualApplied, result.data.id);
+      }
+
+      await clearCart();
+
+      Alert.alert(
+        'Order Placed',
+        `Your order has been placed successfully!\n\nOrder ID: ${result.data?.id}\nTotal: ₹${finalPayable.toFixed(0)}\nPayment: ${
+          paymentMethod === 'cash' ? 'Cash' : 'UPI'
+        } at delivery`,
+        [
+          {
+            text: 'View Order',
+            onPress: () => {
+              router.replace(`/order/${result.data?.id}` as any);
+            },
           },
-        },
-      ]
-    );
-  };
+          {
+            text: 'Go to Orders',
+            onPress: () => {
+              router.replace('/orders' as any);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[CHECKOUT] Error placing order:', error);
+      Alert.alert('Error', 'Failed to place order. Please try again.');
+    }
+  }, [user, defaultAddress, cart, priceDetails, finalPayable, actualApplied, deliveryNotes, paymentMethod, clearCart, router]);
 
   if (cart.length === 0) {
     router.replace('/cart' as any);
