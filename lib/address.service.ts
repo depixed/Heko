@@ -56,6 +56,7 @@ export const addressService = {
   async createAddress(addressData: Omit<AddressInsert, 'id' | 'created_at' | 'updated_at'>): Promise<{ success: boolean; data?: AddressRow; error?: string }> {
     try {
       console.log('[ADDRESS] Creating address for user:', addressData.user_id);
+      console.log('[ADDRESS] Address data:', JSON.stringify(addressData, null, 2));
 
       if (addressData.is_default) {
         const resetUpdate: AddressUpdate = { is_default: false };
@@ -70,23 +71,50 @@ export const addressService = {
         }
       }
 
+      const insertData: AddressInsert = {
+        user_id: addressData.user_id,
+        name: addressData.name,
+        phone: addressData.phone,
+        type: addressData.type,
+        other_label: addressData.other_label || null,
+        address_line1: addressData.address_line1,
+        address_line2: addressData.address_line2 || null,
+        landmark: addressData.landmark || null,
+        city: addressData.city,
+        state: addressData.state,
+        pincode: addressData.pincode,
+        lat: addressData.lat || null,
+        lng: addressData.lng || null,
+        is_default: addressData.is_default || false,
+        is_serviceable: addressData.is_serviceable !== false,
+      };
+
+      console.log('[ADDRESS] Inserting data:', JSON.stringify(insertData, null, 2));
+
       const { data, error } = await supabase
         .from('user_addresses')
-        .insert(addressData as any)
+        // @ts-expect-error - Supabase generated types issue with insert
+        .insert(insertData)
         .select()
         .single();
 
-      if (error || !data) {
-        console.error('[ADDRESS] Error creating address:', error);
-        return { success: false, error: 'Failed to create address' };
+      if (error) {
+        console.error('[ADDRESS] Error creating address:', JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || 'Failed to create address' };
+      }
+
+      if (!data) {
+        console.error('[ADDRESS] No data returned after insert');
+        return { success: false, error: 'No data returned from database' };
       }
 
       const createdAddress = data as AddressRow;
       console.log('[ADDRESS] Address created successfully:', createdAddress.id);
-      return { success: true, data: data as AddressRow };
-    } catch (error) {
-      console.error('[ADDRESS] Error creating address:', error);
-      return { success: false, error: 'Failed to create address' };
+      return { success: true, data: createdAddress };
+    } catch (error: any) {
+      console.error('[ADDRESS] Exception creating address:', error);
+      console.error('[ADDRESS] Error details:', JSON.stringify(error, null, 2));
+      return { success: false, error: error?.message || 'Failed to create address' };
     }
   },
 

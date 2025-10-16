@@ -86,6 +86,7 @@ export default function AddAddressScreen() {
     }
 
     try {
+      console.log('[AddAddress] Attempting to save address');
       await addAddress({
         name: formData.name.trim(),
         phone: formData.phone.trim(),
@@ -101,9 +102,14 @@ export default function AddAddressScreen() {
         isServiceable: true,
       });
 
+      console.log('[AddAddress] Address saved successfully');
       router.back();
-    } catch {
-      Alert.alert('Error', 'Failed to save address. Please try again.');
+    } catch (error: any) {
+      console.error('[AddAddress] Failed to save address:', error);
+      Alert.alert(
+        'Error', 
+        error?.message || 'Failed to save address. Please try again.'
+      );
     }
   };
 

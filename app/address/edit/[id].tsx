@@ -47,7 +47,7 @@ export default function EditAddressScreen() {
         name: address.name,
         phone: address.phone,
         flat: address.flat,
-        area: address.area,
+        area: address.area || '',
         landmark: address.landmark || '',
         city: address.city,
         state: address.state,
@@ -109,6 +109,7 @@ export default function EditAddressScreen() {
     }
 
     try {
+      console.log('[EditAddress] Attempting to update address:', id);
       await updateAddress(id, {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
@@ -123,9 +124,14 @@ export default function EditAddressScreen() {
         isDefault: formData.isDefault,
       });
 
+      console.log('[EditAddress] Address updated successfully');
       router.back();
-    } catch {
-      Alert.alert('Error', 'Failed to update address. Please try again.');
+    } catch (error: any) {
+      console.error('[EditAddress] Failed to update address:', error);
+      Alert.alert(
+        'Error', 
+        error?.message || 'Failed to update address. Please try again.'
+      );
     }
   };
 
