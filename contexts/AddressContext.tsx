@@ -27,27 +27,21 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       console.log('[AddressContext] Loading addresses for user:', user.id);
       const result = await addressService.getAddresses(user.id);
       if (result.success && result.data) {
-        const appAddresses: Address[] = result.data.map(addr => {
-          const flatParts = addr.flat.split(', ');
-          const flat = flatParts[0] || addr.flat;
-          const area = flatParts.length > 1 ? flatParts.slice(1).join(', ') : '';
-          
-          return {
-            id: addr.id,
-            name: addr.name,
-            phone: addr.phone,
-            type: addr.type as 'home' | 'work' | 'other',
-            otherLabel: addr.other_label || undefined,
-            flat,
-            area,
-            landmark: addr.landmark || undefined,
-            city: addr.city,
-            state: addr.state,
-            pincode: addr.pincode,
-            isDefault: addr.is_default,
-            isServiceable: addr.is_serviceable,
-          };
-        });
+        const appAddresses: Address[] = result.data.map(addr => ({
+          id: addr.id,
+          name: addr.name,
+          phone: addr.phone,
+          type: addr.type as 'home' | 'work' | 'other',
+          otherLabel: addr.other_label || undefined,
+          flat: addr.address_line1,
+          area: addr.address_line2 || undefined,
+          landmark: addr.landmark || undefined,
+          city: addr.city,
+          state: addr.state,
+          pincode: addr.pincode,
+          isDefault: addr.is_default,
+          isServiceable: addr.is_serviceable,
+        }));
         setAddresses(appAddresses);
         console.log('[AddressContext] Addresses loaded:', appAddresses.length);
       }
@@ -65,14 +59,14 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
     
     try {
       console.log('[AddressContext] Adding new address');
-      const flatWithArea = address.area ? `${address.flat}, ${address.area}` : address.flat;
       const result = await addressService.createAddress({
         user_id: user.id,
         name: address.name,
         phone: address.phone,
         type: address.type,
         other_label: address.otherLabel || null,
-        flat: flatWithArea,
+        address_line1: address.flat,
+        address_line2: address.area || null,
         landmark: address.landmark || null,
         city: address.city,
         state: address.state,
@@ -99,14 +93,8 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       if (updates.phone !== undefined) updateData.phone = updates.phone;
       if (updates.type !== undefined) updateData.type = updates.type;
       if (updates.otherLabel !== undefined) updateData.other_label = updates.otherLabel;
-      
-      if (updates.flat !== undefined || updates.area !== undefined) {
-        const existingAddress = addresses.find(a => a.id === id);
-        const flat = updates.flat !== undefined ? updates.flat : (existingAddress?.flat || '');
-        const area = updates.area !== undefined ? updates.area : (existingAddress?.area || '');
-        updateData.flat = area ? `${flat}, ${area}` : flat;
-      }
-      
+      if (updates.flat !== undefined) updateData.address_line1 = updates.flat;
+      if (updates.area !== undefined) updateData.address_line2 = updates.area || null;
       if (updates.landmark !== undefined) updateData.landmark = updates.landmark;
       if (updates.city !== undefined) updateData.city = updates.city;
       if (updates.state !== undefined) updateData.state = updates.state;

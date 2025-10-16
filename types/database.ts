@@ -55,7 +55,8 @@ export interface Database {
           phone: string;
           type: 'home' | 'work' | 'other';
           other_label: string | null;
-          flat: string;
+          address_line1: string;
+          address_line2: string | null;
           landmark: string | null;
           city: string;
           state: string;
@@ -74,7 +75,8 @@ export interface Database {
           phone: string;
           type: 'home' | 'work' | 'other';
           other_label?: string | null;
-          flat: string;
+          address_line1: string;
+          address_line2?: string | null;
           landmark?: string | null;
           city: string;
           state: string;
@@ -93,7 +95,8 @@ export interface Database {
           phone?: string;
           type?: 'home' | 'work' | 'other';
           other_label?: string | null;
-          flat?: string;
+          address_line1?: string;
+          address_line2?: string | null;
           landmark?: string | null;
           city?: string;
           state?: string;
