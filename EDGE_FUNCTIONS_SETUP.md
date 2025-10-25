@@ -54,7 +54,7 @@ You need to deploy these 4 Edge Functions to your Supabase project:
 
 ## Edge Function Endpoints
 
-All endpoints use: `https://kilpufxhteouojcyzqto.supabase.co/functions/v1/`
+All endpoints use: `https://ijfgikkpiirepmjyvidl.supabase.co/functions/v1/`
 
 ### 1. Send OTP
 **POST** `/customer-send-otp`

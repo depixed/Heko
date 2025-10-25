@@ -6,13 +6,11 @@ type OrderInsert = Database['public']['Tables']['orders']['Insert'];
 type OrderUpdate = Database['public']['Tables']['orders']['Update'];
 type OrderItemInsert = Database['public']['Tables']['order_items']['Insert'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
-type ProductRow = Database['public']['Tables']['products']['Row'];
 type AddressRow = Database['public']['Tables']['user_addresses']['Row'];
+type ProductRow = Database['public']['Tables']['products']['Row'];
 
 export interface OrderWithRelations extends OrderRow {
-  order_items?: (OrderItemRow & {
-    products?: Pick<ProductRow, 'name' | 'images' | 'unit'> | null;
-  })[];
+  order_items?: OrderItemRow[];
   user_addresses?: AddressRow | null;
 }
 
@@ -21,9 +19,11 @@ export interface CreateOrderData {
   addressId: string;
   items: Array<{
     productId: string;
-    vendorId: string;
+    productName: string;
+    productImage: string;
     quantity: number;
-    price: number;
+    totalPrice: number;
+    status?: string;
   }>;
   subtotal: number;
   discount: number;
@@ -31,7 +31,7 @@ export interface CreateOrderData {
   total: number;
   walletUsed: number;
   deliveryNotes?: string;
-  deliveryWindow?: string;
+  deliveryWindow?: string; // ISO string if provided
 }
 
 export interface OrderFilters {
@@ -42,13 +42,41 @@ export interface OrderFilters {
 }
 
 export const orderService = {
+  generateOrderNumber(): string {
+    const now = new Date();
+    const yyyy = now.getFullYear().toString();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const datePart = `${yyyy}${mm}${dd}`;
+    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return `HEKO-${datePart}-${rand}`;
+  },
+
+  async generateUniqueOrderNumber(): Promise<string> {
+    // Try a few times in the unlikely event of collision
+    for (let i = 0; i < 5; i++) {
+      const orderNumber = this.generateOrderNumber();
+      const { data } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('order_number', orderNumber)
+        .maybeSingle();
+      if (!data) return orderNumber;
+    }
+    // Fallback with timestamp suffix
+    const fallback = `HEKO-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    return fallback;
+  },
+
   async createOrder(orderData: CreateOrderData): Promise<{ success: boolean; data?: OrderWithRelations; error?: string }> {
     try {
       console.log('[ORDER] Creating order for user:', orderData.userId);
 
       const deliveryOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      const orderNumber = await this.generateUniqueOrderNumber();
 
       const orderInsert: OrderInsert = {
+        order_number: orderNumber,
         user_id: orderData.userId,
         address_id: orderData.addressId,
         status: 'processing',
@@ -59,7 +87,10 @@ export const orderService = {
         wallet_used: orderData.walletUsed,
         delivery_notes: orderData.deliveryNotes || null,
         delivery_otp: deliveryOTP,
-        delivery_window: orderData.deliveryWindow || null,
+        delivery_window:
+          orderData.deliveryWindow && !Number.isNaN(Date.parse(orderData.deliveryWindow))
+            ? new Date(orderData.deliveryWindow).toISOString()
+            : null,
       };
 
       const { data: order, error: orderError } = await supabase
@@ -74,13 +105,42 @@ export const orderService = {
       }
 
       const orderId = (order as OrderRow).id;
-      const orderItems: OrderItemInsert[] = orderData.items.map(item => ({
-        order_id: orderId,
-        product_id: item.productId,
-        vendor_id: item.vendorId,
-        quantity: item.quantity,
-        price: item.price,
-      }));
+      // Fetch unit prices and product info from products table to ensure correctness
+      const productIds = [...new Set(orderData.items.map(i => i.productId))];
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, images, price')
+        .in('id', productIds);
+
+      if (productsError) {
+        console.error('[ORDER] Error fetching products for order items:', productsError);
+        return { success: false, error: 'Failed to prepare order items' };
+      }
+
+      const productRows = (products ?? []) as Array<Pick<ProductRow, 'id' | 'name' | 'images' | 'price'>>;
+      const productById = new Map<string, Pick<ProductRow, 'id' | 'name' | 'images' | 'price'>>(
+        productRows.map((p) => [p.id, p])
+      );
+
+      const orderItems: OrderItemInsert[] = orderData.items.map(item => {
+        const p = productById.get(item.productId);
+        if (!p) {
+          throw new Error(`Product not found: ${item.productId}`);
+        }
+        const unitPrice = p.price;
+        const firstImage = Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : '';
+        const totalPrice = unitPrice * item.quantity;
+        return {
+          order_id: orderId,
+          product_id: item.productId,
+          product_name: p.name,
+          product_image: firstImage,
+          quantity: item.quantity,
+          unit_price: unitPrice,
+          status: item.status ?? 'pending',
+          total_price: totalPrice,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')
@@ -107,10 +167,7 @@ export const orderService = {
         .from('orders')
         .select(`
           *,
-          order_items(
-            *,
-            products(name, images, unit)
-          ),
+          order_items(*),
           user_addresses(*)
         `)
         .eq('user_id', userId);
@@ -156,10 +213,7 @@ export const orderService = {
         .from('orders')
         .select(`
           *,
-          order_items(
-            *,
-            products(name, images, unit)
-          ),
+          order_items(*),
           user_addresses(*)
         `)
         .eq('id', orderId)

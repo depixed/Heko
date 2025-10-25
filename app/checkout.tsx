@@ -13,7 +13,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { ChevronLeft, ChevronDown, ChevronUp, Home, Briefcase, MapPin } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAddresses } from '@/contexts/AddressContext';
@@ -106,9 +106,11 @@ export default function CheckoutScreen() {
       const orderItems = cart.map(item => {
         return {
           productId: item.product.id,
-          vendorId: '00000000-0000-0000-0000-000000000000',
+          productName: item.product.name,
+          productImage: item.product.image,
           quantity: item.quantity,
-          price: Math.round(item.product.price * 100),
+          totalPrice: Math.round(item.product.price * item.quantity),
+          status: 'pending',
         };
       });
 
@@ -116,20 +118,19 @@ export default function CheckoutScreen() {
         userId: user.id,
         addressId: defaultAddress.id,
         items: orderItems,
-        subtotal: Math.round(priceDetails.itemsTotal * 100),
-        discount: Math.round(priceDetails.itemDiscount * 100),
-        deliveryFee: Math.round(priceDetails.deliveryFee * 100),
-        total: Math.round(finalPayable * 100),
-        walletUsed: Math.round(actualApplied * 100),
+        subtotal: Math.round(priceDetails.itemsTotal),
+        discount: Math.round(priceDetails.itemDiscount),
+        deliveryFee: Math.round(priceDetails.deliveryFee),
+        total: Math.round(finalPayable),
+        walletUsed: Math.round(actualApplied),
         deliveryNotes,
-        deliveryWindow: '2-4pm Today',
       });
 
       if (result.success && result.data) {
         clearCart();
         Alert.alert(
           'Order Placed',
-          `Your order has been placed successfully!\n\nOrder ID: #${result.data.id.slice(0, 8)}\nTotal: ₹${finalPayable.toFixed(0)}\nPayment: ${
+          `Your order has been placed successfully!\n\nOrder #: ${result.data.order_number}\nTotal: ₹${finalPayable.toFixed(2)}\nPayment: ${
             paymentMethod === 'cash' ? 'Cash' : 'UPI'
           } at delivery`,
           [
@@ -154,10 +155,14 @@ export default function CheckoutScreen() {
     }
   };
 
-  if (cart.length === 0) {
-    router.replace('/cart' as any);
-    return null;
-  }
+  // Avoid navigation/state changes during render; gate with an effect
+  useEffect(() => {
+    if (cart.length === 0) {
+      router.replace('/cart' as any);
+    }
+  }, [cart.length]);
+
+  if (cart.length === 0) return null;
 
   return (
     <View style={styles.container}>

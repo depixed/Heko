@@ -1,7 +1,7 @@
 export const SUPABASE_CONFIG = {
-  URL: 'https://kilpufxhteouojcyzqto.supabase.co',
-  PUBLISHABLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpbHB1ZnhodGVvdW9qY3l6cXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0OTk3NzQsImV4cCI6MjA3NjA3NTc3NH0.VqBi37DLiUwJ87KLGhumbCASK376QpqeM6NWms_aDIY',
-  PROJECT_ID: 'kilpufxhteouojcyzqto',
+  URL: 'https://ijfgikkpiirepmjyvidl.supabase.co',
+  PUBLISHABLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZmdpa2twaWlyZXBtanl2aWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzNjQ3NDUsImV4cCI6MjA3Njk0MDc0NX0.vuDAO3CUf-QF02hHUMn3VhNP5tMUPg4KG4WCuTd5Oqk',
+  PROJECT_ID: 'ijfgikkpiirepmjyvidl',
 } as const;
 
 export const SUPABASE_TABLES = {
