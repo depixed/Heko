@@ -290,6 +290,7 @@ export interface Database {
       orders: {
         Row: {
           id: string;
+          order_number: string;
           user_id: string;
           address_id: string;
           status: 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
@@ -307,6 +308,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          order_number?: string;
           user_id: string;
           address_id: string;
           status?: 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
@@ -324,6 +326,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          order_number?: string;
           user_id?: string;
           address_id?: string;
           status?: 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
@@ -345,28 +348,43 @@ export interface Database {
           id: string;
           order_id: string;
           product_id: string;
-          vendor_id: string;
+          product_name: string;
+          product_image: string;
+          vendor_id: string | null;
           quantity: number;
-          price: number;
+          unit_price: number;
+          status: string;
+          total_price: number;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           order_id: string;
           product_id: string;
-          vendor_id: string;
+          product_name: string;
+          product_image: string;
+          vendor_id?: string | null;
           quantity: number;
-          price: number;
+          unit_price: number;
+          status?: string;
+          total_price: number;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           order_id?: string;
           product_id?: string;
-          vendor_id?: string;
+          product_name?: string;
+          product_image?: string;
+          vendor_id?: string | null;
           quantity?: number;
-          price?: number;
+          unit_price?: number;
+          status?: string;
+          total_price?: number;
           created_at?: string;
+          updated_at?: string;
         };
       };
       delivery_partners: {

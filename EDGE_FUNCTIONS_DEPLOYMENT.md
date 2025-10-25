@@ -52,7 +52,7 @@ supabase login
 ### 3. Link Your Project
 
 ```bash
-supabase link --project-ref kilpufxhteouojcyzqto
+supabase link --project-ref ijfgikkpiirepmjyvidl
 ```
 
 ### 4. Deploy All Functions
@@ -82,7 +82,7 @@ supabase functions deploy customer-validate-session
 ### 5. Verify Deployment
 
 Check your Supabase Dashboard:
-1. Go to: https://supabase.com/dashboard/project/kilpufxhteouojcyzqto/functions
+1. Go to: https://supabase.com/dashboard/project/ijfgikkpiirepmjyvidl/functions
 2. You should see all 4 functions listed
 3. Check logs for any deployment errors
 
@@ -93,7 +93,7 @@ Check your Supabase Dashboard:
 1. **Send OTP**:
 ```bash
 curl -X POST \
-  https://kilpufxhteouojcyzqto.supabase.co/functions/v1/customer-send-otp \
+  https://ijfgikkpiirepmjyvidl.supabase.co/functions/v1/customer-send-otp \
   -H "Content-Type: application/json" \
   -H "apikey: YOUR_ANON_KEY" \
   -d '{"phone": "+919876543210"}'
@@ -102,7 +102,7 @@ curl -X POST \
 2. **Verify OTP** (New User):
 ```bash
 curl -X POST \
-  https://kilpufxhteouojcyzqto.supabase.co/functions/v1/customer-verify-otp \
+  https://ijfgikkpiirepmjyvidl.supabase.co/functions/v1/customer-verify-otp \
   -H "Content-Type: application/json" \
   -H "apikey: YOUR_ANON_KEY" \
   -d '{"phone": "+919876543210", "otp": "123456"}'
@@ -111,7 +111,7 @@ curl -X POST \
 3. **Complete Signup**:
 ```bash
 curl -X POST \
-  https://kilpufxhteouojcyzqto.supabase.co/functions/v1/customer-signup \
+  https://ijfgikkpiirepmjyvidl.supabase.co/functions/v1/customer-signup \
   -H "Content-Type: application/json" \
   -H "apikey: YOUR_ANON_KEY" \
   -d '{
@@ -125,7 +125,7 @@ curl -X POST \
 4. **Validate Session**:
 ```bash
 curl -X POST \
-  https://kilpufxhteouojcyzqto.supabase.co/functions/v1/customer-validate-session \
+  https://ijfgikkpiirepmjyvidl.supabase.co/functions/v1/customer-validate-session \
   -H "Content-Type: application/json" \
   -H "apikey: YOUR_ANON_KEY" \
   -d '{"sessionToken": "YOUR_SESSION_TOKEN"}'
@@ -224,7 +224,7 @@ When a user signs up with a referral code:
 ## Monitoring
 
 View Edge Function logs in Supabase Dashboard:
-1. Go to: https://supabase.com/dashboard/project/kilpufxhteouojcyzqto/functions
+1. Go to: https://supabase.com/dashboard/project/ijfgikkpiirepmjyvidl/functions
 2. Click on each function
 3. View "Logs" tab
 4. Monitor for errors, especially during signup

@@ -1,5 +1,7 @@
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { useOrders } from '@/contexts/OrderContext';
@@ -10,7 +12,13 @@ type OrderStatus = Database['public']['Tables']['orders']['Row']['status'];
 export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { orders, isLoadingOrders } = useOrders();
+  const { orders, isLoadingOrders, refreshOrders } = useOrders();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshOrders();
+    }, [refreshOrders])
+  );
 
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
@@ -77,7 +85,7 @@ export default function OrdersScreen() {
                 onPress={() => router.push(`/order/${order.id}` as any)}
               >
                 <View style={styles.orderHeader}>
-                  <Text style={styles.orderId}>Order #{order.id.slice(0, 8)}</Text>
+                  <Text style={styles.orderId}>Order #: {order.order_number}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
                     <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
                   </View>
@@ -87,12 +95,12 @@ export default function OrdersScreen() {
                   {(order.order_items || []).slice(0, 2).map((item, index) => (
                     <View key={index} style={styles.orderItem}>
                       <Image 
-                        source={{ uri: item.products?.image || 'https://via.placeholder.com/48' }} 
+                        source={{ uri: item.product_image || 'https://via.placeholder.com/48' }} 
                         style={styles.itemImage} 
                       />
                       <View style={styles.itemInfo}>
-                        <Text style={styles.itemName} numberOfLines={1}>{item.products?.name || 'Product'}</Text>
-                        <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+                        <Text style={styles.itemName} numberOfLines={1}>{item.product_name || 'Product'}</Text>
+                        <Text style={styles.itemQuantity}>Qty: {item.quantity} • {item.status}</Text>
                       </View>
                     </View>
                   ))}
@@ -110,7 +118,7 @@ export default function OrdersScreen() {
                         year: 'numeric',
                       })}
                     </Text>
-                    <Text style={styles.orderTotal}>₹{(order.total / 100).toFixed(2)}</Text>
+                    <Text style={styles.orderTotal}>₹{order.total.toFixed(2)}</Text>
                   </View>
                   <Text style={styles.viewDetails}>View Details →</Text>
                 </View>

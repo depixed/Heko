@@ -37,8 +37,8 @@ export const walletService = {
       }
 
       const balance: WalletBalance = {
-        virtualBalance: (data as ProfileRow).virtual_wallet / 100,
-        actualBalance: (data as ProfileRow).actual_wallet / 100,
+        virtualBalance: (data as ProfileRow).virtual_wallet,
+        actualBalance: (data as ProfileRow).actual_wallet,
       };
 
       console.log('[WALLET] Wallet balance:', balance);
@@ -110,8 +110,7 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch profile' };
       }
 
-      const amountInPaise = Math.round(amount * 100);
-      const newBalance = (profile as ProfileRow).virtual_wallet + amountInPaise;
+      const newBalance = (profile as ProfileRow).virtual_wallet + Math.round(amount);
 
       const updateData: ProfileUpdate = { virtual_wallet: newBalance };
       const { error: updateError } = await supabase
@@ -128,7 +127,7 @@ export const walletService = {
       const transaction: WalletTransactionInsert = {
         user_id: userId,
         type: 'cashback',
-        amount: amountInPaise,
+        amount: Math.round(amount),
         wallet_type: 'virtual',
         direction: 'credit',
         kind: 'cashback',
@@ -169,14 +168,14 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch referrer profile' };
       }
 
-      const amountInPaise = Math.round(conversionAmount * 100);
+      const amountInRupees = Math.round(conversionAmount);
 
-      if ((referrerProfile as ProfileRow).virtual_wallet < amountInPaise) {
+      if ((referrerProfile as ProfileRow).virtual_wallet < amountInRupees) {
         return { success: false, error: 'Insufficient virtual wallet balance' };
       }
 
-      const newVirtualBalance = (referrerProfile as ProfileRow).virtual_wallet - amountInPaise;
-      const newActualBalance = (referrerProfile as ProfileRow).actual_wallet + amountInPaise;
+      const newVirtualBalance = (referrerProfile as ProfileRow).virtual_wallet - amountInRupees;
+      const newActualBalance = (referrerProfile as ProfileRow).actual_wallet + amountInRupees;
 
       const updateData: ProfileUpdate = {
         virtual_wallet: newVirtualBalance,
@@ -196,7 +195,7 @@ export const walletService = {
       const virtualDebitTxn: WalletTransactionInsert = {
         user_id: referrerId,
         type: 'referral',
-        amount: amountInPaise,
+        amount: amountInRupees,
         wallet_type: 'virtual',
         direction: 'debit',
         kind: 'referral_conversion',
@@ -222,7 +221,7 @@ export const walletService = {
       const actualCreditTxn: WalletTransactionInsert = {
         user_id: referrerId,
         type: 'referral',
-        amount: amountInPaise,
+        amount: amountInRupees,
         wallet_type: 'actual',
         direction: 'credit',
         kind: 'referral_conversion',
@@ -249,7 +248,7 @@ export const walletService = {
         referrer_user_id: referrerId,
         referee_user_id: refereeId,
         order_id: orderId,
-        conversion_amount: amountInPaise,
+        conversion_amount: amountInRupees,
         virtual_debit_txn_id: virtualTxnId,
         actual_credit_txn_id: actualTxnId,
       };
@@ -286,13 +285,13 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch profile' };
       }
 
-      const amountInPaise = Math.round(amount * 100);
+      const amountInRupees = Math.round(amount);
 
-      if ((profile as ProfileRow).actual_wallet < amountInPaise) {
+      if ((profile as ProfileRow).actual_wallet < amountInRupees) {
         return { success: false, error: 'Insufficient actual wallet balance' };
       }
 
-      const newBalance = (profile as ProfileRow).actual_wallet - amountInPaise;
+      const newBalance = (profile as ProfileRow).actual_wallet - amountInRupees;
 
       const updateData: ProfileUpdate = { actual_wallet: newBalance };
       const { error: updateError } = await supabase
@@ -309,7 +308,7 @@ export const walletService = {
       const transaction: WalletTransactionInsert = {
         user_id: userId,
         type: 'redemption',
-        amount: amountInPaise,
+        amount: amountInRupees,
         wallet_type: 'actual',
         direction: 'debit',
         kind: 'redeem',
@@ -350,8 +349,8 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch profile' };
       }
 
-      const amountInPaise = Math.round(amount * 100);
-      const newBalance = (profile as ProfileRow).actual_wallet + amountInPaise;
+      const amountInRupees = Math.round(amount);
+      const newBalance = (profile as ProfileRow).actual_wallet + amountInRupees;
 
       const updateData: ProfileUpdate = { actual_wallet: newBalance };
       const { error: updateError } = await supabase
@@ -368,7 +367,7 @@ export const walletService = {
       const transaction: WalletTransactionInsert = {
         user_id: userId,
         type: 'refund',
-        amount: amountInPaise,
+        amount: amountInRupees,
         wallet_type: 'actual',
         direction: 'credit',
         kind: 'refund',

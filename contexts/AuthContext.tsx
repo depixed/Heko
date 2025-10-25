@@ -93,7 +93,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const appTransactions: WalletTransaction[] = dbTransactions.map(txn => ({
           id: txn.id,
           type: txn.type.toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
-          amount: txn.amount / 100,
+          amount: txn.amount,
           walletType: txn.wallet_type,
           direction: txn.direction.toUpperCase() as 'CREDIT' | 'DEBIT',
           kind: txn.kind.toUpperCase() as 'CASHBACK' | 'REFERRAL_CONVERSION' | 'REFUND' | 'REDEEM' | 'ADJUST',
@@ -102,7 +102,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           conversionId: txn.conversion_id || undefined,
           description: txn.description || '',
           timestamp: txn.created_at,
-          balanceAfter: txn.balance_after / 100,
+          balanceAfter: txn.balance_after,
         }));
 
         setWallet({
@@ -132,8 +132,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         thisMonth.setHours(0, 0, 0, 0);
 
         const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
-        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0) / 100), 0);
-        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0) / 100), 0);
+        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
+        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
 
         setReferralStats({
           totalReferred: conversions.length,

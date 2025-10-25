@@ -245,7 +245,8 @@ export default function OrderDetailsScreen() {
               </Text>
             </View>
             <Text style={styles.addressText}>
-              {order.user_addresses.flat}, {order.user_addresses.area}
+              {order.user_addresses.address_line1}
+              {order.user_addresses.address_line2 ? `, ${order.user_addresses.address_line2}` : ''}
               {order.user_addresses.landmark ? `, ${order.user_addresses.landmark}` : ''}
               {'\n'}
               {order.user_addresses.city}, {order.user_addresses.state} - {order.user_addresses.pincode}
@@ -270,10 +271,10 @@ export default function OrderDetailsScreen() {
               {(order.order_items || []).map((item, index) => (
                 <View key={index} style={styles.itemRow}>
                   <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.products?.name || 'Product'}</Text>
-                    <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+                    <Text style={styles.itemName}>{item.product_name || 'Product'}</Text>
+                    <Text style={styles.itemQuantity}>Qty: {item.quantity} • {item.status}</Text>
                   </View>
-                  <Text style={styles.itemPrice}>₹{((item.price * item.quantity) / 100).toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>₹{item.total_price.toFixed(2)}</Text>
                 </View>
               ))}
             </View>
@@ -284,27 +285,27 @@ export default function OrderDetailsScreen() {
           <Text style={styles.paymentTitle}>Payment Details</Text>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Items Total ({order.order_items?.length || 0})</Text>
-            <Text style={styles.paymentValue}>₹{(order.subtotal / 100).toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>₹{order.subtotal.toFixed(2)}</Text>
           </View>
           {order.discount > 0 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Item Discount</Text>
               <Text style={[styles.paymentValue, styles.discountText]}>
-                -₹{(order.discount / 100).toFixed(2)}
+                -₹{order.discount.toFixed(2)}
               </Text>
             </View>
           )}
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Delivery Fee</Text>
             <Text style={styles.paymentValue}>
-              {order.delivery_fee === 0 ? 'Free' : `₹${(order.delivery_fee / 100).toFixed(2)}`}
+              {order.delivery_fee === 0 ? 'Free' : `₹${order.delivery_fee.toFixed(2)}`}
             </Text>
           </View>
           {order.wallet_used > 0 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Wallet Applied (Actual)</Text>
               <Text style={[styles.paymentValue, styles.discountText]}>
-                -₹{(order.wallet_used / 100).toFixed(2)}
+                -₹{order.wallet_used.toFixed(2)}
               </Text>
             </View>
           )}
@@ -313,7 +314,7 @@ export default function OrderDetailsScreen() {
             <Text style={styles.paymentTotalLabel}>
               {order.status === 'delivered' ? 'Total Paid' : 'Total Payable at Delivery'}
             </Text>
-            <Text style={styles.paymentTotalValue}>₹{(order.total / 100).toFixed(2)}</Text>
+            <Text style={styles.paymentTotalValue}>₹{order.total.toFixed(2)}</Text>
           </View>
           {order.status !== 'delivered' && (
             <Text style={styles.paymentNote}>Pay cash or UPI to the delivery partner.</Text>
@@ -323,8 +324,8 @@ export default function OrderDetailsScreen() {
         <View style={styles.metaCard}>
           <Text style={styles.metaTitle}>Order Information</Text>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Order ID</Text>
-            <Text style={styles.metaValue}>#{order.id.slice(0, 8)}</Text>
+            <Text style={styles.metaLabel}>Order #</Text>
+            <Text style={styles.metaValue}>{order.order_number}</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Placed On</Text>
@@ -355,7 +356,7 @@ export default function OrderDetailsScreen() {
           <Text style={styles.bottomBarLabel}>
             {order.status === 'delivered' ? 'Total Paid' : 'Total Payable'}
           </Text>
-          <Text style={styles.bottomBarValue}>₹{(order.total / 100).toFixed(2)}</Text>
+          <Text style={styles.bottomBarValue}>₹{order.total.toFixed(2)}</Text>
         </View>
         <View style={styles.bottomBarRight}>
           {showOFDActions && (
