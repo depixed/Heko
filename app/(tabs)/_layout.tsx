@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background.primary,
     borderTopWidth: 1,
     borderTopColor: Colors.border.light,
-    height: Platform.OS === 'ios' ? 85 : 65,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 5,
+    height: Platform.OS === 'ios' ? 85 : Platform.OS === 'web' ? 70 : 65,
+    paddingBottom: Platform.OS === 'ios' ? 20 : Platform.OS === 'web' ? 10 : 5,
   },
   tabItem: {
     flex: 1,
@@ -116,14 +116,23 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+      } as any,
+    }),
   },
   brandText: {
     color: Colors.text.inverse,

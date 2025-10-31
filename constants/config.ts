@@ -42,6 +42,7 @@ export const APP_CONFIG = {
 } as const;
 
 export const ORDER_STATUS = {
+  PLACED: 'Placed',
   PROCESSING: 'Processing',
   PREPARING: 'Preparing',
   OUT_FOR_DELIVERY: 'Out for Delivery',

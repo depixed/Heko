@@ -178,15 +178,16 @@ The following Supabase tables are now ready:
 - **ADJUSTMENT** - Manual adjustment by admin
 
 ### Order Status Flow:
-1. `processing` - Order received
-2. `preparing` - Items being prepared
-3. `out_for_delivery` - Assigned to delivery partner
-4. `delivered` - Order delivered successfully
-5. `partially_delivered` - Some items delivered
-6. `unfulfillable` - Cannot fulfill order
-7. `canceled` - Order canceled
-8. `return_in_progress` - Return initiated
-9. `returned` - Items returned
+1. `placed` - Order placed by customer (initial status)
+2. `processing` - Order received and being processed
+3. `preparing` - Items being prepared
+4. `out_for_delivery` - Assigned to delivery partner
+5. `delivered` - Order delivered successfully
+6. `partially_delivered` - Some items delivered
+7. `unfulfillable` - Cannot fulfill order
+8. `canceled` - Order canceled
+9. `return_in_progress` - Return initiated
+10. `returned` - Items returned
 
 ---
 

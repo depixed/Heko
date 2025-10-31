@@ -157,7 +157,7 @@ export default function EditAddressScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.select({ ios: 'padding', android: 'height', web: undefined })}
     >
       <ScrollView
         style={styles.scrollView}

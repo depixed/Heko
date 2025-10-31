@@ -74,7 +74,19 @@ export default function ReferralScreen() {
   const saveQRCode = async () => {
     try {
       if (Platform.OS === 'web') {
-        Alert.alert('Not Available', 'QR code download is not available on web. Please use the share option.');
+        // Web-friendly download using canvas and anchor
+        qrRef.current?.toDataURL((dataURL: string) => {
+          try {
+            const link = document.createElement('a');
+            link.download = 'heko-referral-qr.png';
+            link.href = dataURL;
+            link.click();
+            Alert.alert('Success', 'QR code downloaded');
+          } catch (error) {
+            console.error('Error downloading QR code:', error);
+            Alert.alert('Error', 'Failed to download QR code. Please try again.');
+          }
+        });
         return;
       }
 
@@ -294,12 +306,10 @@ export default function ReferralScreen() {
               />
             </View>
             <View style={styles.qrActions}>
-              {Platform.OS !== 'web' && (
-                <TouchableOpacity style={styles.qrActionButton} onPress={saveQRCode}>
-                  <Download size={20} color={Colors.brand.primary} />
-                  <Text style={styles.qrActionText}>Save QR</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity style={styles.qrActionButton} onPress={saveQRCode}>
+                <Download size={20} color={Colors.brand.primary} />
+                <Text style={styles.qrActionText}>{Platform.OS === 'web' ? 'Download QR' : 'Save QR'}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.qrActionButton} onPress={shareQRCode}>
                 <Share2 size={20} color={Colors.brand.primary} />
                 <Text style={styles.qrActionText}>Share QR</Text>
@@ -559,7 +569,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700' as const,
     color: Colors.text.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', web: 'monospace' }),
     letterSpacing: 2,
   },
   copyButton: {
@@ -589,7 +599,7 @@ const styles = StyleSheet.create({
   linkValue: {
     fontSize: 13,
     color: Colors.brand.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', web: 'monospace' }),
   },
   qrSection: {
     alignItems: 'center',
@@ -729,7 +739,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background.primary,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 12,
+    paddingBottom: Platform.select({ ios: 32, android: 12, web: 20 }),
     borderTopWidth: 1,
     borderTopColor: Colors.border.light,
   },

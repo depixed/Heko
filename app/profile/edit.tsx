@@ -204,7 +204,7 @@ export default function EditProfileScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.select({ ios: 'padding', android: 'height', web: undefined })}
     >
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
