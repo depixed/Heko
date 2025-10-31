@@ -87,12 +87,12 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
   }, [orders]);
 
   const getActiveOrders = useCallback((): OrderWithRelations[] => {
-    const activeStatuses: OrderStatus[] = ['processing', 'preparing', 'out_for_delivery'];
+    const activeStatuses: OrderStatus[] = ['placed', 'processing', 'preparing', 'out_for_delivery'];
     return orders.filter(order => activeStatuses.includes(order.status));
   }, [orders]);
 
   const getPastOrders = useCallback((): OrderWithRelations[] => {
-    const pastStatuses: OrderStatus[] = ['delivered', 'canceled', 'unfulfillable', 'returned'];
+    const pastStatuses: OrderStatus[] = ['delivered', 'partially_delivered', 'canceled', 'unfulfillable', 'return_in_progress', 'returned'];
     return orders.filter(order => pastStatuses.includes(order.status));
   }, [orders]);
 

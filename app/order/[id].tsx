@@ -24,13 +24,14 @@ export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { getOrderById } = useOrders();
+  const { getOrderById, cancelOrder: cancelOrderContext } = useOrders();
   
   const [order, setOrder] = useState<OrderWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [otpVisible, setOtpVisible] = useState(false);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [itemsExpanded, setItemsExpanded] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
 
   useEffect(() => {
     loadOrder();
@@ -61,6 +62,8 @@ export default function OrderDetailsScreen() {
 
   const getStatusLabel = (status: OrderStatus) => {
     switch (status) {
+      case 'placed':
+        return 'Placed';
       case 'processing':
         return 'Processing';
       case 'preparing':
@@ -88,6 +91,8 @@ export default function OrderDetailsScreen() {
     if (!order) return '';
     
     switch (order.status) {
+      case 'placed':
+        return 'Your order has been placed';
       case 'processing':
         return 'Your order is being processed';
       case 'preparing':
@@ -125,7 +130,9 @@ export default function OrderDetailsScreen() {
 
 
 
-  const cancelOrder = () => {
+  const cancelOrder = async () => {
+    if (!order?.id) return;
+
     Alert.alert(
       'Cancel Order',
       'Are you sure you want to cancel this order? This action cannot be undone.',
@@ -134,7 +141,34 @@ export default function OrderDetailsScreen() {
         {
           text: 'Yes, Cancel',
           style: 'destructive',
-          onPress: () => Alert.alert('Order Canceled', 'Your order has been canceled'),
+          onPress: async () => {
+            setIsCanceling(true);
+            try {
+              const success = await cancelOrderContext(order.id, 'Canceled by user');
+              if (success) {
+                Alert.alert(
+                  'Order Canceled',
+                  'Your order has been canceled successfully.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        // Reload the order to show updated status
+                        loadOrder();
+                      },
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert('Error', 'Failed to cancel order. Please try again.');
+              }
+            } catch (error) {
+              console.error('[OrderDetails] Error canceling order:', error);
+              Alert.alert('Error', 'Failed to cancel order. Please try again.');
+            } finally {
+              setIsCanceling(false);
+            }
+          },
         },
       ]
     );
@@ -371,8 +405,14 @@ export default function OrderDetailsScreen() {
             </TouchableOpacity>
           )}
           {canCancel && (
-            <TouchableOpacity style={styles.cancelButton} onPress={cancelOrder}>
-              <Text style={styles.cancelButtonText}>Cancel Order</Text>
+            <TouchableOpacity 
+              style={[styles.cancelButton, isCanceling && styles.cancelButtonDisabled]} 
+              onPress={cancelOrder}
+              disabled={isCanceling}
+            >
+              <Text style={styles.cancelButtonText}>
+                {isCanceling ? 'Canceling...' : 'Cancel Order'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -693,6 +733,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
+  },
+  cancelButtonDisabled: {
+    opacity: 0.5,
   },
   cancelButtonText: {
     fontSize: 14,

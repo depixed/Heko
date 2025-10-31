@@ -79,7 +79,7 @@ export const orderService = {
         order_number: orderNumber,
         user_id: orderData.userId,
         address_id: orderData.addressId,
-        status: 'processing',
+        status: 'placed',
         subtotal: orderData.subtotal,
         discount: orderData.discount,
         delivery_fee: orderData.deliveryFee,

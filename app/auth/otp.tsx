@@ -131,7 +131,7 @@ export default function OTPScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.select({ ios: 'padding', android: 'height', web: undefined })}
           style={styles.keyboardAvoid}
         >
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

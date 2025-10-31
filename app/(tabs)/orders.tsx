@@ -36,6 +36,8 @@ export default function OrdersScreen() {
 
   const getStatusLabel = (status: OrderStatus) => {
     switch (status) {
+      case 'placed':
+        return 'Placed';
       case 'processing':
         return 'Processing';
       case 'preparing':

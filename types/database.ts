@@ -293,7 +293,7 @@ export interface Database {
           order_number: string;
           user_id: string;
           address_id: string;
-          status: 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
+          status: 'placed' | 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
           subtotal: number;
           discount: number;
           delivery_fee: number;
@@ -311,7 +311,7 @@ export interface Database {
           order_number?: string;
           user_id: string;
           address_id: string;
-          status?: 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
+          status?: 'placed' | 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
           subtotal: number;
           discount: number;
           delivery_fee: number;
@@ -329,7 +329,7 @@ export interface Database {
           order_number?: string;
           user_id?: string;
           address_id?: string;
-          status?: 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
+          status?: 'placed' | 'processing' | 'preparing' | 'out_for_delivery' | 'delivered' | 'partially_delivered' | 'unfulfillable' | 'canceled' | 'return_in_progress' | 'returned';
           subtotal?: number;
           discount?: number;
           delivery_fee?: number;
