@@ -21,6 +21,7 @@ export const authService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ phone: formattedPhone }),
@@ -51,6 +52,7 @@ export const authService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ phone: formattedPhone, otp }),
@@ -101,6 +103,7 @@ export const authService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ phone: formattedPhone, otp }),
@@ -135,6 +138,7 @@ export const authService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
@@ -187,6 +191,7 @@ export const authService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ sessionToken: session.token }),

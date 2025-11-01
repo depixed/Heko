@@ -80,7 +80,7 @@ export interface WalletTransaction {
   amount: number;
   walletType: 'virtual' | 'actual';
   direction: 'CREDIT' | 'DEBIT';
-  kind: 'CASHBACK' | 'REFERRAL_CONVERSION' | 'REFUND' | 'REDEEM' | 'ADJUST';
+  kind: 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT';
   orderId?: string;
   refereeUserId?: string;
   conversionId?: string;

@@ -11,6 +11,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Check for authorization header
+    const authHeader = req.headers.get('authorization')
+    const apiKey = req.headers.get('apikey')
+    
+    if (!authHeader && !apiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
