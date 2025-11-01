@@ -61,3 +61,11 @@ export const WALLET_TRANSACTION_TYPES = {
   ADJUSTMENT: 'Adjustment',
   REDEMPTION: 'Redemption',
 } as const;
+
+export const WALLET_TRANSACTION_KINDS = {
+  CASHBACK: 'Cashback Reward',
+  REFERRAL_REWARD: 'Referral Reward',
+  REFUND: 'Order Refund',
+  ORDER_PAYMENT: 'Order Payment',
+  ADJUSTMENT: 'Wallet Conversion',
+} as const;

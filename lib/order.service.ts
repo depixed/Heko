@@ -288,4 +288,30 @@ export const orderService = {
       return { success: false, error: 'Failed to cancel order' };
     }
   },
+
+  async processDeliveryCashback(orderId: string, deliveryAmount: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[ORDER] Processing delivery cashback for order:', orderId, deliveryAmount);
+
+      const { data, error } = await supabase.functions.invoke('process-delivery-cashback', {
+        body: { orderId, deliveryAmount },
+      });
+
+      if (error) {
+        console.error('[ORDER] Error processing cashback:', error);
+        return { success: false, error: 'Failed to process cashback' };
+      }
+
+      if (!data?.success) {
+        console.error('[ORDER] Cashback processing failed:', data?.error);
+        return { success: false, error: data?.error || 'Cashback processing failed' };
+      }
+
+      console.log('[ORDER] Cashback processed successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('[ORDER] Error processing delivery cashback:', error);
+      return { success: false, error: 'Failed to process delivery cashback' };
+    }
+  },
 };

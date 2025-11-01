@@ -90,20 +90,30 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const transactionsResult = await walletService.getTransactions(userId, { limit: 50 });
         
         const dbTransactions = transactionsResult.success && transactionsResult.data ? transactionsResult.data : [];
-        const appTransactions: WalletTransaction[] = dbTransactions.map(txn => ({
-          id: txn.id,
-          type: txn.type.toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
-          amount: txn.amount,
-          walletType: txn.wallet_type,
-          direction: txn.direction.toUpperCase() as 'CREDIT' | 'DEBIT',
-          kind: txn.kind.toUpperCase() as 'CASHBACK' | 'REFERRAL_CONVERSION' | 'REFUND' | 'REDEEM' | 'ADJUST',
-          orderId: txn.order_id || undefined,
-          refereeUserId: txn.referee_user_id || undefined,
-          conversionId: txn.conversion_id || undefined,
-          description: txn.description || '',
-          timestamp: txn.created_at,
-          balanceAfter: txn.balance_after,
-        }));
+        const appTransactions: WalletTransaction[] = dbTransactions
+          .filter(txn => txn && txn.id) // Filter out invalid transactions
+          .map(txn => {
+            try {
+              return {
+                id: txn.id,
+                type: (txn.type || 'CASHBACK').toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
+                amount: txn.amount || 0,
+                walletType: txn.wallet_type || 'virtual',
+                direction: (txn.direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
+                kind: (txn.kind || 'CASHBACK').toUpperCase() as 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT',
+                orderId: txn.order_id || undefined,
+                refereeUserId: txn.referee_user_id || undefined,
+                conversionId: txn.conversion_id || undefined,
+                description: txn.description || '',
+                timestamp: txn.created_at || new Date().toISOString(),
+                balanceAfter: txn.balance_after || 0,
+              };
+            } catch (error) {
+              console.warn('[AuthContext] Error processing transaction:', txn, error);
+              return null;
+            }
+          })
+          .filter(Boolean) as WalletTransaction[]; // Remove null entries
 
         setWallet({
           virtualBalance: balanceResult.data.virtualBalance || 0,

@@ -49,21 +49,52 @@ export default function WalletScreen() {
     sortedTransactions.forEach(txn => {
       if (processedIds.has(txn.id)) return;
 
-      if (txn.conversionId && txn.kind === 'REFERRAL_CONVERSION') {
+      // Group referral conversion transactions by order_id and same timestamp
+      if (txn.kind === 'ADJUSTMENT' && txn.orderId) {
         const pair = sortedTransactions.find(
-          t => t.conversionId === txn.conversionId && t.id !== txn.id
+          t => t.orderId === txn.orderId && 
+               t.kind === 'REFERRAL_REWARD' && 
+               t.id !== txn.id &&
+               Math.abs(new Date(t.timestamp).getTime() - new Date(txn.timestamp).getTime()) < 60000 // Within 1 minute
         );
 
         if (pair) {
           processedIds.add(txn.id);
           processedIds.add(pair.id);
 
-          const debit = txn.direction === 'DEBIT' ? txn : pair;
-          const credit = txn.direction === 'CREDIT' ? txn : pair;
+          const debit = txn.kind === 'ADJUSTMENT' ? txn : pair;
+          const credit = txn.kind === 'REFERRAL_REWARD' ? txn : pair;
 
           groups.push({
             type: 'conversion',
-            conversionId: txn.conversionId,
+            conversionId: txn.orderId || 'unknown',
+            debit,
+            credit,
+            timestamp: txn.timestamp,
+          });
+        } else {
+          processedIds.add(txn.id);
+          groups.push({ type: 'single', transaction: txn });
+        }
+      } else if (txn.kind === 'REFERRAL_REWARD' && txn.orderId) {
+        // Check if this referral reward has a corresponding adjustment
+        const pair = sortedTransactions.find(
+          t => t.orderId === txn.orderId && 
+               t.kind === 'ADJUSTMENT' && 
+               t.id !== txn.id &&
+               Math.abs(new Date(t.timestamp).getTime() - new Date(txn.timestamp).getTime()) < 60000 // Within 1 minute
+        );
+
+        if (pair) {
+          processedIds.add(txn.id);
+          processedIds.add(pair.id);
+
+          const debit = pair;
+          const credit = txn;
+
+          groups.push({
+            type: 'conversion',
+            conversionId: txn.orderId || 'unknown',
             debit,
             credit,
             timestamp: txn.timestamp,
@@ -142,7 +173,7 @@ export default function WalletScreen() {
     const virtualIncome = thisMonth.filter(t => t.walletType === 'virtual' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
     const actualIncome = thisMonth.filter(t => t.walletType === 'actual' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
     const actualSpends = Math.abs(thisMonth.filter(t => t.walletType === 'actual' && t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
-    const conversions = thisMonth.filter(t => t.kind === 'REFERRAL_CONVERSION' && t.direction === 'CREDIT' && t.walletType === 'actual').reduce((sum, t) => sum + t.amount, 0);
+    const conversions = thisMonth.filter(t => t.kind === 'REFERRAL_REWARD' && t.direction === 'CREDIT' && t.walletType === 'actual').reduce((sum, t) => sum + t.amount, 0);
 
     return { virtualIncome, actualIncome, actualSpends, conversions };
   }, [wallet.transactions]);
@@ -156,15 +187,53 @@ export default function WalletScreen() {
     setShowFilters(false);
   };
 
-  const getTransactionIcon = (type: string) => {
+  // Helper function to clean up transaction descriptions and extract meaningful info
+  const getCleanTransactionTitle = (description: string, kind: string) => {
+    // Remove UUID patterns from descriptions
+    const cleanDescription = description.replace(/\(referee:\s*[a-f0-9-]{36}\)/gi, '');
+    
+    switch (kind) {
+      case 'CASHBACK':
+        return cleanDescription.replace(/for order HEKO-\d+-\w+/gi, '');
+      case 'REFERRAL_REWARD':
+        return 'Referral Reward Earned';
+      case 'ADJUSTMENT':
+        return 'Virtual to Actual Conversion';
+      case 'ORDER_PAYMENT':
+        return 'Wallet Payment';
+      case 'REFUND':
+        return 'Order Refund';
+      default:
+        return cleanDescription;
+    }
+  };
+
+  const getTransactionSubtitle = (txn: WalletTransaction) => {
+    if (txn.orderId) {
+      const orderNumber = txn.orderId.includes('HEKO-') 
+        ? txn.orderId 
+        : `Order #${txn.orderId.slice(-6)}`;
+      return orderNumber;
+    }
+    return 'Transaction';
+  };
+
+  const getTransactionIcon = (type: string, kind?: string) => {
+    if (kind === 'ADJUSTMENT') return '🔄';
+    if (kind === 'REFERRAL_REWARD') return '🎁';
+    if (kind === 'ORDER_PAYMENT') return '💳';
+    
     switch (type) {
       case 'CASHBACK':
-      case 'REFERRAL':
         return '🎁';
+      case 'REFERRAL':
+        return '👥';
       case 'REFUND':
         return '↩️';
       case 'REDEMPTION':
         return '💳';
+      case 'ADJUSTMENT':
+        return '⚖️';
       default:
         return '💰';
     }
@@ -298,7 +367,7 @@ export default function WalletScreen() {
                           <View style={styles.transactionInfo}>
                             <Text style={styles.transactionTitle}>From Virtual Wallet</Text>
                             <Text style={styles.transactionSubtitle}>
-                              {group.debit.orderId ? `Referee Order #${group.debit.orderId}` : 'Referral conversion'}
+                              {group.debit.orderId ? `Referee Order #${group.debit.orderId.slice(-6)}` : 'Referral conversion'}
                             </Text>
                           </View>
                         </View>
@@ -322,7 +391,7 @@ export default function WalletScreen() {
                           <View style={styles.transactionInfo}>
                             <Text style={styles.transactionTitle}>To Actual Wallet</Text>
                             <Text style={styles.transactionSubtitle}>
-                              {group.credit.orderId ? `Referee Order #${group.credit.orderId}` : 'Referral conversion'}
+                              {group.credit.orderId ? `Referee Order #${group.credit.orderId.slice(-6)}` : 'Referral conversion'}
                             </Text>
                           </View>
                         </View>
@@ -346,11 +415,11 @@ export default function WalletScreen() {
                     activeOpacity={0.7}
                   >
                     <View style={styles.transactionLeft}>
-                      <Text style={styles.transactionIcon}>{getTransactionIcon(txn.type)}</Text>
+                      <Text style={styles.transactionIcon}>{getTransactionIcon(txn.type, txn.kind)}</Text>
                       <View style={styles.transactionInfo}>
-                        <Text style={styles.transactionTitle}>{txn.description}</Text>
+                        <Text style={styles.transactionTitle}>{getCleanTransactionTitle(txn.description, txn.kind)}</Text>
                         <Text style={styles.transactionSubtitle}>
-                          {txn.orderId ? `Order #${txn.orderId}` : 'Transaction'}
+                          {getTransactionSubtitle(txn)}
                         </Text>
                         <View style={styles.walletTag}>
                           <Text style={styles.walletTagText}>
@@ -363,10 +432,10 @@ export default function WalletScreen() {
                       <Text
                         style={[
                           styles.transactionAmount,
-                          txn.amount > 0 ? styles.positiveAmount : styles.negativeAmount,
+                          txn.direction === 'CREDIT' ? styles.positiveAmount : styles.negativeAmount,
                         ]}
                       >
-                        {txn.amount > 0 ? '+' : ''}₹{Math.abs(txn.amount)}
+                        {txn.direction === 'CREDIT' ? '+' : '-'}₹{Math.abs(txn.amount)}
                       </Text>
                       <ChevronRight size={16} color={Colors.text.tertiary} />
                     </View>
@@ -454,7 +523,7 @@ export default function WalletScreen() {
             {selectedTransaction && (
               <>
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailIcon}>{getTransactionIcon(selectedTransaction.type)}</Text>
+                  <Text style={styles.detailIcon}>{getTransactionIcon(selectedTransaction.type, selectedTransaction.kind)}</Text>
                   <Text style={styles.detailTitle}>{selectedTransaction.description}</Text>
                 </View>
 

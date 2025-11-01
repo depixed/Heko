@@ -479,7 +479,7 @@ export interface Database {
           amount: number;
           wallet_type: 'virtual' | 'actual';
           direction: 'credit' | 'debit';
-          kind: 'cashback' | 'referral_conversion' | 'refund' | 'redeem' | 'adjust';
+          kind: 'cashback' | 'referral_reward' | 'refund' | 'order_payment' | 'adjustment';
           order_id: string | null;
           referee_user_id: string | null;
           conversion_id: string | null;
@@ -494,7 +494,7 @@ export interface Database {
           amount: number;
           wallet_type: 'virtual' | 'actual';
           direction: 'credit' | 'debit';
-          kind: 'cashback' | 'referral_conversion' | 'refund' | 'redeem' | 'adjust';
+          kind: 'cashback' | 'referral_reward' | 'refund' | 'order_payment' | 'adjustment';
           order_id?: string | null;
           referee_user_id?: string | null;
           conversion_id?: string | null;
@@ -646,34 +646,43 @@ export interface Database {
       banners: {
         Row: {
           id: string;
-          image: string;
           title: string;
           subtitle: string | null;
-          action: string | null;
-          sort_order: number;
-          is_active: boolean;
+          image: string;
+          action_type: string | null;
+          action_value: string | null;
+          display_order: number;
+          active: boolean;
+          start_date: string | null;
+          end_date: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          image: string;
           title: string;
           subtitle?: string | null;
-          action?: string | null;
-          sort_order?: number;
-          is_active?: boolean;
+          image: string;
+          action_type?: string | null;
+          action_value?: string | null;
+          display_order?: number;
+          active?: boolean;
+          start_date?: string | null;
+          end_date?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          image?: string;
           title?: string;
           subtitle?: string | null;
-          action?: string | null;
-          sort_order?: number;
-          is_active?: boolean;
+          image?: string;
+          action_type?: string | null;
+          action_value?: string | null;
+          display_order?: number;
+          active?: boolean;
+          start_date?: string | null;
+          end_date?: string | null;
           created_at?: string;
           updated_at?: string;
         };

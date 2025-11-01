@@ -45,8 +45,25 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
           table: 'orders',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           console.log('[OrderContext] Order change detected:', payload);
+          
+          // If order status changed to 'delivered', trigger cashback processing
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            const newOrder = payload.new as any;
+            const oldOrder = payload.old as any;
+            
+            if (newOrder.status === 'delivered' && oldOrder.status !== 'delivered') {
+              console.log('[OrderContext] Order delivered, processing cashback...');
+              try {
+                await orderService.processDeliveryCashback(newOrder.id, newOrder.total);
+                console.log('[OrderContext] Cashback processed automatically');
+              } catch (error) {
+                console.error('[OrderContext] Error processing automatic cashback:', error);
+              }
+            }
+          }
+          
           loadOrders();
         }
       )
@@ -115,6 +132,22 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
     await loadOrders();
   }, [loadOrders]);
 
+  const processDeliveryCashback = useCallback(async (orderId: string, deliveryAmount: number): Promise<boolean> => {
+    try {
+      console.log('[OrderContext] Processing delivery cashback:', orderId, deliveryAmount);
+      const result = await orderService.processDeliveryCashback(orderId, deliveryAmount);
+      if (result.success) {
+        console.log('[OrderContext] Cashback processed successfully');
+        return true;
+      }
+      console.error('[OrderContext] Failed to process cashback:', result.error);
+      return false;
+    } catch (error) {
+      console.error('[OrderContext] Error processing cashback:', error);
+      return false;
+    }
+  }, []);
+
   return useMemo(() => ({
     orders,
     isLoadingOrders,
@@ -124,6 +157,7 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
     getPastOrders,
     cancelOrder,
     refreshOrders,
+    processDeliveryCashback,
   }), [
     orders,
     isLoadingOrders,
@@ -133,5 +167,6 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
     getPastOrders,
     cancelOrder,
     refreshOrders,
+    processDeliveryCashback,
   ]);
 });
