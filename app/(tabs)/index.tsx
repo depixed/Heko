@@ -128,7 +128,7 @@ export default function HomeScreen() {
 
           <View style={styles.headerActions}>
           <TouchableOpacity style={styles.walletBadge} onPress={() => router.push('/wallet' as any)}>
-            <Text style={styles.walletText}>₹{(wallet.virtualBalance + wallet.actualBalance).toFixed(0)}</Text>
+            <Text style={styles.walletText}>₹{(wallet.virtualBalance + wallet.actualBalance).toFixed(2)}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.bellButton}
@@ -201,10 +201,10 @@ export default function HomeScreen() {
                         <Text style={styles.productUnit}>{product.unit}</Text>
                         <Text style={styles.productCategory}>{product.category}</Text>
                         <View style={styles.productPricing}>
-                          <Text style={styles.productPrice}>₹{product.price}</Text>
+                          <Text style={styles.productPrice}>₹{product.price.toFixed(2)}</Text>
                           {product.discount > 0 && (
                             <>
-                              <Text style={styles.productMrp}>₹{product.mrp}</Text>
+                              <Text style={styles.productMrp}>₹{product.mrp.toFixed(2)}</Text>
                               <Text style={styles.productDiscount}>{product.discount}% OFF</Text>
                             </>
                           )}
@@ -322,10 +322,10 @@ export default function HomeScreen() {
                         <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                         <Text style={styles.productUnit}>{product.unit}</Text>
                         <View style={styles.productPricing}>
-                          <Text style={styles.productPrice}>₹{product.price}</Text>
+                          <Text style={styles.productPrice}>₹{product.price.toFixed(2)}</Text>
                           {product.discount > 0 && (
                             <>
-                              <Text style={styles.productMrp}>₹{product.mrp}</Text>
+                              <Text style={styles.productMrp}>₹{product.mrp.toFixed(2)}</Text>
                               <Text style={styles.productDiscount}>{product.discount}% OFF</Text>
                             </>
                           )}

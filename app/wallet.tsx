@@ -311,7 +311,7 @@ export default function WalletScreen() {
               <Gift size={32} color="#FFFFFF" />
             </View>
             <Text style={styles.balanceLabel}>Virtual Wallet</Text>
-            <Text style={styles.balanceAmount}>₹{wallet.virtualBalance}</Text>
+            <Text style={styles.balanceAmount}>₹{wallet.virtualBalance.toFixed(2)}</Text>
             <Text style={styles.balanceCaption}>Convertible (not spendable)</Text>
           </TouchableOpacity>
 
@@ -328,7 +328,7 @@ export default function WalletScreen() {
               <WalletIcon size={32} color="#FFFFFF" />
             </View>
             <Text style={styles.balanceLabel}>Actual Wallet</Text>
-            <Text style={styles.balanceAmount}>₹{wallet.actualBalance}</Text>
+            <Text style={styles.balanceAmount}>₹{wallet.actualBalance.toFixed(2)}</Text>
             <Text style={styles.balanceCaption}>Spendable</Text>
           </TouchableOpacity>
         </View>

@@ -114,10 +114,10 @@ export default function ProductDetailScreen() {
           </Text>
 
           <View style={styles.pricingRow}>
-            <Text style={styles.finalPrice}>₹{product.price}</Text>
+            <Text style={styles.finalPrice}>₹{product.price.toFixed(2)}</Text>
             {product.discount > 0 && (
               <>
-                <Text style={styles.mrpStrike}>₹{product.mrp}</Text>
+                <Text style={styles.mrpStrike}>₹{product.mrp.toFixed(2)}</Text>
                 <Text style={styles.discountBadge}>{product.discount}% OFF</Text>
               </>
             )}
@@ -212,8 +212,8 @@ export default function ProductDetailScreen() {
                         {item.name}
                       </Text>
                       <View style={styles.similarPricing}>
-                        <Text style={styles.similarPrice}>₹{item.price}</Text>
-                        {item.discount > 0 && <Text style={styles.similarMrp}>₹{item.mrp}</Text>}
+                        <Text style={styles.similarPrice}>₹{item.price.toFixed(2)}</Text>
+                        {item.discount > 0 && <Text style={styles.similarMrp}>₹{item.mrp.toFixed(2)}</Text>}
                       </View>
                       {item.unit && <Text style={styles.similarUnit}>{item.unit}</Text>}
                       {similarQty === 0 ? (
@@ -293,7 +293,7 @@ export default function ProductDetailScreen() {
               style={styles.viewCartButton}
               onPress={() => router.push('/cart' as any)}
             >
-              <Text style={styles.viewCartButtonText}>View cart ₹{cartTotal.toFixed(0)}</Text>
+              <Text style={styles.viewCartButtonText}>View cart ₹{cartTotal.toFixed(2)}</Text>
             </TouchableOpacity>
           </View>
         )}

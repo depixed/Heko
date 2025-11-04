@@ -68,8 +68,82 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         setUser(sessionResult.user);
         setToken(sessionResult.token);
         
-        await loadWalletData(sessionResult.user.id);
-        await loadReferralStats(sessionResult.user.id);
+        // Load wallet data
+        try {
+          console.log('[AuthContext] Loading wallet data for user:', sessionResult.user.id);
+          const balanceResult = await walletService.getWalletBalance(sessionResult.user.id);
+          if (balanceResult.success && balanceResult.data) {
+            const transactionsResult = await walletService.getTransactions(sessionResult.user.id, { limit: 50 });
+            
+            const dbTransactions = transactionsResult.success && transactionsResult.data ? transactionsResult.data : [];
+            const appTransactions: WalletTransaction[] = dbTransactions
+              .filter(txn => txn && txn.id)
+              .map(txn => {
+                try {
+                  return {
+                    id: txn.id,
+                    type: (txn.type || 'CASHBACK').toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
+                    amount: txn.amount || 0,
+                    walletType: txn.wallet_type || 'virtual',
+                    direction: ((txn as any).transaction_type || (txn as any).direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
+                    kind: (txn.kind || 'CASHBACK').toUpperCase() as 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT',
+                    orderId: txn.order_id || undefined,
+                    refereeUserId: txn.referee_user_id || undefined,
+                    conversionId: txn.conversion_id || undefined,
+                    description: txn.description || '',
+                    timestamp: txn.created_at || new Date().toISOString(),
+                    balanceAfter: txn.balance_after || 0,
+                  };
+                } catch (error) {
+                  console.warn('[AuthContext] Error processing transaction:', txn, error);
+                  return null;
+                }
+              })
+              .filter(Boolean) as WalletTransaction[];
+
+            setWallet({
+              virtualBalance: balanceResult.data.virtualBalance || 0,
+              actualBalance: balanceResult.data.actualBalance || 0,
+              transactions: appTransactions,
+            });
+            console.log('[AuthContext] Wallet loaded:', balanceResult.data.virtualBalance, balanceResult.data.actualBalance);
+          }
+        } catch (error) {
+          console.error('[AuthContext] Error loading wallet:', error);
+        }
+
+        // Load referral stats
+        try {
+          console.log('[AuthContext] Loading referral stats for user:', sessionResult.user.id);
+          const { data: conversions } = await supabase
+            .from('referral_conversions')
+            .select('*')
+            .eq('referrer_user_id', sessionResult.user.id)
+            .order('created_at', { ascending: false });
+
+          if (conversions) {
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            thisMonth.setHours(0, 0, 0, 0);
+
+            const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
+            const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
+            const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
+
+            setReferralStats({
+              totalReferred: conversions.length,
+              activeReferrers: conversions.length,
+              lifetimeEarnings,
+              thisMonthEarnings,
+              convertedThisMonth: thisMonthConversions.length,
+              lifetimeConverted: conversions.length,
+              referrals: [],
+            });
+            console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
+          }
+        } catch (error) {
+          console.error('[AuthContext] Error loading referral stats:', error);
+        }
         
         setupRealtimeSubscriptions(sessionResult.user.id);
       } else {
@@ -79,85 +153,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.error('[AuthContext] Error loading stored data:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadWalletData = async (userId: string) => {
-    try {
-      console.log('[AuthContext] Loading wallet data for user:', userId);
-      const balanceResult = await walletService.getWalletBalance(userId);
-      if (balanceResult.success && balanceResult.data) {
-        const transactionsResult = await walletService.getTransactions(userId, { limit: 50 });
-        
-        const dbTransactions = transactionsResult.success && transactionsResult.data ? transactionsResult.data : [];
-        const appTransactions: WalletTransaction[] = dbTransactions
-          .filter(txn => txn && txn.id) // Filter out invalid transactions
-          .map(txn => {
-            try {
-              return {
-                id: txn.id,
-                type: (txn.type || 'CASHBACK').toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
-                amount: txn.amount || 0,
-                walletType: txn.wallet_type || 'virtual',
-                direction: ((txn as any).transaction_type || (txn as any).direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
-                kind: (txn.kind || 'CASHBACK').toUpperCase() as 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT',
-                orderId: txn.order_id || undefined,
-                refereeUserId: txn.referee_user_id || undefined,
-                conversionId: txn.conversion_id || undefined,
-                description: txn.description || '',
-                timestamp: txn.created_at || new Date().toISOString(),
-                balanceAfter: txn.balance_after || 0,
-              };
-            } catch (error) {
-              console.warn('[AuthContext] Error processing transaction:', txn, error);
-              return null;
-            }
-          })
-          .filter(Boolean) as WalletTransaction[]; // Remove null entries
-
-        setWallet({
-          virtualBalance: balanceResult.data.virtualBalance || 0,
-          actualBalance: balanceResult.data.actualBalance || 0,
-          transactions: appTransactions,
-        });
-        console.log('[AuthContext] Wallet loaded:', balanceResult.data.virtualBalance, balanceResult.data.actualBalance);
-      }
-    } catch (error) {
-      console.error('[AuthContext] Error loading wallet:', error);
-    }
-  };
-
-  const loadReferralStats = async (userId: string) => {
-    try {
-      console.log('[AuthContext] Loading referral stats for user:', userId);
-      const { data: conversions } = await supabase
-        .from('referral_conversions')
-        .select('*')
-        .eq('referrer_user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (conversions) {
-        const thisMonth = new Date();
-        thisMonth.setDate(1);
-        thisMonth.setHours(0, 0, 0, 0);
-
-        const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
-        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
-        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
-
-        setReferralStats({
-          totalReferred: conversions.length,
-          activeReferrers: conversions.length,
-          lifetimeEarnings,
-          thisMonthEarnings,
-          convertedThisMonth: thisMonthConversions.length,
-          lifetimeConverted: conversions.length,
-          referrals: [],
-        });
-        console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
-      }
-    } catch (error) {
-      console.error('[AuthContext] Error loading referral stats:', error);
     }
   };
 
@@ -204,9 +199,47 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           table: 'wallet_transactions',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
+        async (payload) => {
           console.log('[AuthContext] New wallet transaction:', payload.new);
-          loadWalletData(userId);
+          // Reload wallet data when new transaction occurs
+          try {
+            const balanceResult = await walletService.getWalletBalance(userId);
+            if (balanceResult.success && balanceResult.data) {
+              const transactionsResult = await walletService.getTransactions(userId, { limit: 50 });
+              const dbTransactions = transactionsResult.success && transactionsResult.data ? transactionsResult.data : [];
+              const appTransactions: WalletTransaction[] = dbTransactions
+                .filter(txn => txn && txn.id)
+                .map(txn => {
+                  try {
+                    return {
+                      id: txn.id,
+                      type: (txn.type || 'CASHBACK').toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
+                      amount: txn.amount || 0,
+                      walletType: txn.wallet_type || 'virtual',
+                      direction: ((txn as any).transaction_type || (txn as any).direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
+                      kind: (txn.kind || 'CASHBACK').toUpperCase() as 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT',
+                      orderId: txn.order_id || undefined,
+                      refereeUserId: txn.referee_user_id || undefined,
+                      conversionId: txn.conversion_id || undefined,
+                      description: txn.description || '',
+                      timestamp: txn.created_at || new Date().toISOString(),
+                      balanceAfter: txn.balance_after || 0,
+                    };
+                  } catch (error) {
+                    return null;
+                  }
+                })
+                .filter(Boolean) as WalletTransaction[];
+
+              setWallet({
+                virtualBalance: balanceResult.data.virtualBalance || 0,
+                actualBalance: balanceResult.data.actualBalance || 0,
+                transactions: appTransactions,
+              });
+            }
+          } catch (error) {
+            console.error('[AuthContext] Error reloading wallet:', error);
+          }
         }
       )
       .subscribe();
@@ -222,8 +255,84 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     setUser(userData);
     setToken(authToken);
     
-    await loadWalletData(userData.id);
-    await loadReferralStats(userData.id);
+    // Load wallet data
+    try {
+      console.log('[AuthContext] Loading wallet data for user:', userData.id);
+      const balanceResult = await walletService.getWalletBalance(userData.id);
+      if (balanceResult.success && balanceResult.data) {
+        const transactionsResult = await walletService.getTransactions(userData.id, { limit: 50 });
+        
+        const dbTransactions = transactionsResult.success && transactionsResult.data ? transactionsResult.data : [];
+        const appTransactions: WalletTransaction[] = dbTransactions
+          .filter(txn => txn && txn.id)
+          .map(txn => {
+            try {
+              return {
+                id: txn.id,
+                type: (txn.type || 'CASHBACK').toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
+                amount: txn.amount || 0,
+                walletType: txn.wallet_type || 'virtual',
+                direction: ((txn as any).transaction_type || (txn as any).direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
+                kind: (txn.kind || 'CASHBACK').toUpperCase() as 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT',
+                orderId: txn.order_id || undefined,
+                refereeUserId: txn.referee_user_id || undefined,
+                conversionId: txn.conversion_id || undefined,
+                description: txn.description || '',
+                timestamp: txn.created_at || new Date().toISOString(),
+                balanceAfter: txn.balance_after || 0,
+              };
+            } catch (error) {
+              console.warn('[AuthContext] Error processing transaction:', txn, error);
+              return null;
+            }
+          })
+          .filter(Boolean) as WalletTransaction[];
+
+        setWallet({
+          virtualBalance: balanceResult.data.virtualBalance || 0,
+          actualBalance: balanceResult.data.actualBalance || 0,
+          transactions: appTransactions,
+        });
+        console.log('[AuthContext] Wallet loaded:', balanceResult.data.virtualBalance, balanceResult.data.actualBalance);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading wallet:', error);
+    }
+
+    // Load referral stats
+    try {
+      console.log('[AuthContext] Loading referral stats for user:', userData.id);
+      const { data: conversions } = await supabase
+        .from('referral_conversions')
+        .select('*')
+        .eq('referrer_user_id', userData.id)
+        .order('created_at', { ascending: false });
+
+      if (conversions) {
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        thisMonth.setHours(0, 0, 0, 0);
+
+        const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
+        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
+        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
+
+        setReferralStats({
+          totalReferred: conversions.length,
+          activeReferrers: conversions.length,
+          lifetimeEarnings,
+          thisMonthEarnings,
+          convertedThisMonth: thisMonthConversions.length,
+          lifetimeConverted: conversions.length,
+          referrals: [],
+        });
+        console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading referral stats:', error);
+    }
+
+    // Setup realtime subscriptions
     setupRealtimeSubscriptions(userData.id);
   }, []);
 
