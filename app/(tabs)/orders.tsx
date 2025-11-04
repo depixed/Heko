@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { useOrders } from '@/contexts/OrderContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/types/database';
 
 type OrderStatus = Database['public']['Tables']['orders']['Row']['status'];
@@ -13,11 +14,14 @@ export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { orders, isLoadingOrders, refreshOrders } = useOrders();
+  const { isAuthenticated } = useAuth();
 
   useFocusEffect(
     React.useCallback(() => {
-      refreshOrders();
-    }, [refreshOrders])
+      if (isAuthenticated) {
+        refreshOrders();
+      }
+    }, [isAuthenticated, refreshOrders])
   );
 
   const getStatusColor = (status: OrderStatus) => {
@@ -68,7 +72,16 @@ export default function OrdersScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {isLoadingOrders ? (
+        {!isAuthenticated ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🔒</Text>
+            <Text style={styles.emptyTitle}>Login Required</Text>
+            <Text style={styles.emptySubtitle}>Please login to view your orders</Text>
+            <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/auth')}>
+              <Text style={styles.loginButtonText}>Login</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isLoadingOrders ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.brand.primary} />
           </View>
@@ -172,6 +185,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text.tertiary,
     textAlign: 'center',
+  },
+  loginButton: {
+    marginTop: 20,
+    backgroundColor: Colors.brand.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  loginButtonText: {
+    color: Colors.text.inverse,
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
   loadingContainer: {
     alignItems: 'center',

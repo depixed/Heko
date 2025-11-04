@@ -11,8 +11,27 @@ import React from "react";
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, wallet, logout } = useAuth();
+  const { user, wallet, logout, isAuthenticated } = useAuth();
   const { unreadCount } = useNotifications();
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated || !user) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
+        <View style={styles.loginPrompt}>
+          <Text style={styles.loginEmoji}>👤</Text>
+          <Text style={styles.loginTitle}>Login to Continue</Text>
+          <Text style={styles.loginSubtitle}>Access your profile, wallet, and orders</Text>
+          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/auth')}>
+            <Text style={styles.loginButtonText}>Login</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   const handleLogout = () => {
     Alert.alert(
@@ -204,6 +223,39 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
+  },
+  loginPrompt: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  loginEmoji: {
+    fontSize: 80,
+    marginBottom: 16,
+  },
+  loginTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+    marginBottom: 8,
+  },
+  loginSubtitle: {
+    fontSize: 14,
+    color: Colors.text.tertiary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  loginButton: {
+    backgroundColor: Colors.brand.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  loginButtonText: {
+    color: Colors.text.inverse,
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
   headerTitle: {
     fontSize: 24,

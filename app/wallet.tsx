@@ -32,11 +32,18 @@ type TransactionGroup = {
 export default function WalletScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { wallet } = useAuth();
+  const { wallet, isAuthenticated, user } = useAuth();
   const [selectedWalletType, setSelectedWalletType] = useState<WalletTypeFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [flowTypeFilter, setFlowTypeFilter] = useState<FlowTypeFilter>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
+
+  // Redirect to auth if not logged in
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/auth');
+    }
+  }, [isAuthenticated, router]);
 
   const transactionGroups = useMemo(() => {
     const groups: TransactionGroup[] = [];

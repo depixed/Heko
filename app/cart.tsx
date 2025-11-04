@@ -20,9 +20,24 @@ import type { Product } from '@/types';
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, updateCartItem, addToCart } = useAuth();
+  const { cart, updateCartItem, addToCart, isAuthenticated } = useAuth();
   const { getDefaultAddress } = useAddresses();
   const { products } = useProducts();
+
+  const handleCheckout = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Login Required',
+        'Please login to continue with checkout',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Login', onPress: () => router.push('/auth') }
+        ]
+      );
+      return;
+    }
+    router.push('/checkout' as any);
+  };
 
   const defaultAddress = getDefaultAddress();
 
@@ -372,7 +387,7 @@ export default function CartScreen() {
         )}
         <TouchableOpacity
           style={styles.checkoutButton}
-          onPress={() => router.push('/checkout' as any)}
+          onPress={handleCheckout}
         >
           <Text style={styles.checkoutButtonText}>Checkout</Text>
         </TouchableOpacity>

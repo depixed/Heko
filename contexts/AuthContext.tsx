@@ -19,8 +19,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [wallet, setWallet] = useState<Wallet>({
-    virtualBalance: 4175,
-    actualBalance: 555,
+    virtualBalance: 0,
+    actualBalance: 0,
     transactions: [],
   });
   const [referralStats, setReferralStats] = useState<ReferralStats>({
