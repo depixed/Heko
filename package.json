@@ -6,6 +6,8 @@
     "start": "bunx rork start -p a6kfbcwdys0r3rmzhu89c --tunnel",
     "start-web": "bunx rork start -p a6kfbcwdys0r3rmzhu89c --web --tunnel",
     "start-web-dev": "DEBUG=expo* bunx rork start -p a6kfbcwdys0r3rmzhu89c --web --tunnel",
+    "build:web": "npx expo export --platform web",
+    "preview:web": "npx serve dist",
     "lint": "expo lint"
   },
   "dependencies": {

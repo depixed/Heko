@@ -11,6 +11,7 @@ import { useBanners } from '@/contexts/BannerContext';
 import { useAddresses } from '@/contexts/AddressContext';
 import { APP_CONFIG } from '@/constants/config';
 import type { Product } from '@/types';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -114,17 +115,18 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity style={styles.addressButton} onPress={() => router.push('/addresses' as any)}>
-          <MapPin size={20} color={Colors.brand.primary} />
-          <View style={styles.addressText}>
-            <Text style={styles.addressLabel}>Deliver to</Text>
-            <Text style={styles.addressValue}>{getAddressDisplayText()}</Text>
-          </View>
-        </TouchableOpacity>
+    <ResponsiveContainer>
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <TouchableOpacity style={styles.addressButton} onPress={() => router.push('/addresses' as any)}>
+            <MapPin size={20} color={Colors.brand.primary} />
+            <View style={styles.addressText}>
+              <Text style={styles.addressLabel}>Deliver to</Text>
+              <Text style={styles.addressValue}>{getAddressDisplayText()}</Text>
+            </View>
+          </TouchableOpacity>
 
-        <View style={styles.headerActions}>
+          <View style={styles.headerActions}>
           <TouchableOpacity style={styles.walletBadge} onPress={() => router.push('/wallet' as any)}>
             <Text style={styles.walletText}>₹{(wallet.virtualBalance + wallet.actualBalance).toFixed(0)}</Text>
           </TouchableOpacity>
@@ -371,6 +373,7 @@ export default function HomeScreen() {
         )}
       </ScrollView>
     </View>
+    </ResponsiveContainer>
   );
 }
 

@@ -1,0 +1,16 @@
+[build]
+  publish = "dist"
+
+# SPA fallback - redirect all routes to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Optional: Proxy to Supabase (uncomment only if CORS blocks direct calls)
+# [[redirects]]
+#   from = "/api/supabase/*"
+#   to = "https://ijfgikkpiirepmjyvidl.supabase.co/:splat"
+#   status = 200
+#   force = true
+
