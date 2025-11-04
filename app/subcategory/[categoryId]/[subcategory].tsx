@@ -43,10 +43,10 @@ export default function SubcategoryScreen() {
           <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.productUnit}>{item.unit}</Text>
           <View style={styles.productPricing}>
-            <Text style={styles.productPrice}>₹{item.price}</Text>
+            <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
             {item.discount > 0 && (
               <>
-                <Text style={styles.productMrp}>₹{item.mrp}</Text>
+                <Text style={styles.productMrp}>₹{item.mrp.toFixed(2)}</Text>
                 <Text style={styles.productDiscount}>{item.discount}% OFF</Text>
               </>
             )}

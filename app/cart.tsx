@@ -204,9 +204,9 @@ export default function CartScreen() {
                       {item.product.name}
                     </Text>
                     <View style={styles.itemPriceRow}>
-                      <Text style={styles.itemPrice}>₹{item.product.price}</Text>
+                      <Text style={styles.itemPrice}>₹{item.product.price.toFixed(2)}</Text>
                       {item.product.discount > 0 && (
-                        <Text style={styles.itemMrp}>₹{item.product.mrp}</Text>
+                        <Text style={styles.itemMrp}>₹{item.product.mrp.toFixed(2)}</Text>
                       )}
                       {item.product.unit && (
                         <Text style={styles.itemUnit}>/{item.product.unit}</Text>
@@ -236,7 +236,7 @@ export default function CartScreen() {
                       <Trash2 size={20} color={Colors.text.tertiary} />
                     </TouchableOpacity>
                     <Text style={styles.itemTotal}>
-                      ₹{(item.product.price * item.quantity).toFixed(0)}
+                      ₹{(item.product.price * item.quantity).toFixed(2)}
                     </Text>
                   </View>
                 </View>
@@ -259,12 +259,12 @@ export default function CartScreen() {
             <Text style={styles.paymentLabel}>
               Price ({priceDetails.itemCount} Item{priceDetails.itemCount !== 1 ? 's' : ''})
             </Text>
-            <Text style={styles.paymentValue}>₹{priceDetails.price.toFixed(0)}</Text>
+            <Text style={styles.paymentValue}>₹{priceDetails.price.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Item Discount</Text>
             <Text style={[styles.paymentValue, styles.paymentDiscount]}>
-              -₹{priceDetails.itemDiscount.toFixed(0)}
+              -₹{priceDetails.itemDiscount.toFixed(2)}
             </Text>
           </View>
           <View style={styles.paymentRow}>
@@ -280,7 +280,7 @@ export default function CartScreen() {
           <View style={styles.paymentDivider} />
           <View style={styles.paymentRow}>
             <Text style={styles.paymentTotalLabel}>Total Payable</Text>
-            <Text style={styles.paymentTotalValue}>₹{totalPayable.toFixed(0)}</Text>
+            <Text style={styles.paymentTotalValue}>₹{totalPayable.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -313,9 +313,9 @@ export default function CartScreen() {
                       {item.name}
                     </Text>
                     <View style={styles.similarPricing}>
-                      <Text style={styles.similarPrice}>₹{item.price}</Text>
+                      <Text style={styles.similarPrice}>₹{item.price.toFixed(2)}</Text>
                       {item.discount > 0 && (
-                        <Text style={styles.similarMrp}>₹{item.mrp}</Text>
+                        <Text style={styles.similarMrp}>₹{item.mrp.toFixed(2)}</Text>
                       )}
                     </View>
                     {item.unit && <Text style={styles.similarUnit}>{item.unit}</Text>}
@@ -378,11 +378,11 @@ export default function CartScreen() {
       <View style={[styles.stickyBottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarTop}>
           <Text style={styles.bottomBarLabel}>Total Payable</Text>
-          <Text style={styles.bottomBarValue}>₹{totalPayable.toFixed(0)}</Text>
+          <Text style={styles.bottomBarValue}>₹{totalPayable.toFixed(2)}</Text>
         </View>
         {totalSavings > 0 && (
           <Text style={styles.bottomBarSavings}>
-            You will save ₹{totalSavings.toFixed(0)} on this order
+            You will save ₹{totalSavings.toFixed(2)} on this order
           </Text>
         )}
         <TouchableOpacity

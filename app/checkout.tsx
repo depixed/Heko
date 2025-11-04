@@ -27,6 +27,7 @@ export default function CheckoutScreen() {
   const { cart, wallet, clearCart, user } = useAuth();
   const { getDefaultAddress } = useAddresses();
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [orderPlacedSuccessfully, setOrderPlacedSuccessfully] = useState(false);
 
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
   const [actualWalletApplied, setActualWalletApplied] = useState(false);
@@ -118,33 +119,41 @@ export default function CheckoutScreen() {
         userId: user.id,
         addressId: defaultAddress.id,
         items: orderItems,
-        subtotal: Math.round(priceDetails.itemsTotal),
-        discount: Math.round(priceDetails.itemDiscount),
-        deliveryFee: Math.round(priceDetails.deliveryFee),
-        total: Math.round(finalPayable),
-        walletUsed: Math.round(actualApplied),
+        subtotal: priceDetails.itemsTotal,
+        discount: priceDetails.itemDiscount,
+        deliveryFee: priceDetails.deliveryFee,
+        total: finalPayable,
+        walletUsed: actualApplied,
         deliveryNotes,
         contactlessDelivery,
       });
 
       if (result.success && result.data) {
+        setOrderPlacedSuccessfully(true);
         clearCart();
-        Alert.alert(
-          'Order Placed',
-          `Your order has been placed successfully!\n\nOrder #: ${result.data.order_number}\nTotal: ₹${finalPayable.toFixed(2)}\nPayment: ${
-            paymentMethod === 'cash' ? 'Cash' : 'UPI'
-          } at delivery`,
-          [
-            {
-              text: 'View Order',
-              onPress: () => router.replace(`/order/${result.data!.id}` as any),
-            },
-            {
-              text: 'Go to Orders',
-              onPress: () => router.replace('/orders' as any),
-            },
-          ]
-        );
+        
+        // On web, directly navigate to orders page
+        if (Platform.OS === 'web') {
+          router.replace('/(tabs)/orders' as any);
+        } else {
+          // On mobile, show alert with options
+          Alert.alert(
+            'Order Placed',
+            `Your order has been placed successfully!\n\nOrder #: ${result.data.order_number}\nTotal: ₹${finalPayable.toFixed(2)}\nPayment: ${
+              paymentMethod === 'cash' ? 'Cash' : 'UPI'
+            } at delivery`,
+            [
+              {
+                text: 'View Order',
+                onPress: () => router.replace(`/order/${result.data!.id}` as any),
+              },
+              {
+                text: 'Go to Orders',
+                onPress: () => router.replace('/(tabs)/orders' as any),
+              },
+            ]
+          );
+        }
       } else {
         Alert.alert('Error', result.error || 'Failed to place order. Please try again.');
       }
@@ -157,11 +166,12 @@ export default function CheckoutScreen() {
   };
 
   // Avoid navigation/state changes during render; gate with an effect
+  // Don't redirect if order was just placed successfully
   useEffect(() => {
-    if (cart.length === 0) {
+    if (cart.length === 0 && !orderPlacedSuccessfully) {
       router.replace('/cart' as any);
     }
-  }, [cart.length]);
+  }, [cart.length, orderPlacedSuccessfully]);
 
   if (cart.length === 0) return null;
 
@@ -244,7 +254,7 @@ export default function CheckoutScreen() {
                       <Text style={styles.orderItemQty}>Qty: {item.quantity}</Text>
                     </View>
                     <Text style={styles.orderItemTotal}>
-                      ₹{(item.product.price * item.quantity).toFixed(0)}
+                      ₹{(item.product.price * item.quantity).toFixed(2)}
                     </Text>
                   </View>
                 </View>
@@ -263,7 +273,7 @@ export default function CheckoutScreen() {
               <View>
                 <Text style={styles.walletCardTitle}>Actual Wallet</Text>
                 <Text style={styles.walletCardSubtitle}>Spendable balance</Text>
-                <Text style={styles.walletCardBalance}>₹{wallet.actualBalance.toFixed(0)}</Text>
+                <Text style={styles.walletCardBalance}>₹{wallet.actualBalance.toFixed(2)}</Text>
               </View>
               <Switch
                 value={actualWalletApplied}
@@ -336,7 +346,7 @@ export default function CheckoutScreen() {
                 </View>
 
                 <Text style={styles.walletAppliedNote}>
-                  Applied to this order: ₹{actualApplied.toFixed(0)}
+                  Applied to this order: ₹{actualApplied.toFixed(2)}
                 </Text>
               </View>
             )}
@@ -358,7 +368,7 @@ export default function CheckoutScreen() {
             <View style={styles.walletAppliedSummary}>
               <Text style={styles.walletAppliedSummaryLabel}>Wallet Applied:</Text>
               <Text style={styles.walletAppliedSummaryValue}>
-                ₹{actualApplied.toFixed(0)}
+                ₹{actualApplied.toFixed(2)}
               </Text>
             </View>
           )}
@@ -370,12 +380,12 @@ export default function CheckoutScreen() {
             <Text style={styles.paymentLabel}>
               Items Total ({priceDetails.itemCount})
             </Text>
-            <Text style={styles.paymentValue}>₹{priceDetails.itemsTotal.toFixed(0)}</Text>
+            <Text style={styles.paymentValue}>₹{priceDetails.itemsTotal.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Item Discount</Text>
             <Text style={[styles.paymentValue, styles.paymentDiscount]}>
-              -₹{priceDetails.itemDiscount.toFixed(0)}
+              -₹{priceDetails.itemDiscount.toFixed(2)}
             </Text>
           </View>
           <View style={styles.paymentRow}>
@@ -392,14 +402,14 @@ export default function CheckoutScreen() {
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Wallet Applied (Actual)</Text>
               <Text style={[styles.paymentValue, styles.paymentDiscount]}>
-                -₹{actualApplied.toFixed(0)}
+                -₹{actualApplied.toFixed(2)}
               </Text>
             </View>
           )}
           <View style={styles.paymentDivider} />
           <View style={styles.paymentRow}>
             <Text style={styles.paymentTotalLabel}>Total Payable</Text>
-            <Text style={styles.paymentTotalValue}>₹{finalPayable.toFixed(0)}</Text>
+            <Text style={styles.paymentTotalValue}>₹{finalPayable.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -491,11 +501,11 @@ export default function CheckoutScreen() {
       <View style={[styles.stickyBottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarTop}>
           <Text style={styles.bottomBarLabel}>Total Payable</Text>
-          <Text style={styles.bottomBarValue}>₹{finalPayable.toFixed(0)}</Text>
+          <Text style={styles.bottomBarValue}>₹{finalPayable.toFixed(2)}</Text>
         </View>
         {totalSavings > 0 && (
           <Text style={styles.bottomBarSavings}>
-            You save ₹{totalSavings.toFixed(0)} on this order
+            You save ₹{totalSavings.toFixed(2)} on this order
           </Text>
         )}
         <TouchableOpacity 

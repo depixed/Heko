@@ -110,7 +110,7 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch profile' };
       }
 
-      const newBalance = (profile as ProfileRow).virtual_wallet + Math.round(amount);
+      const newBalance = (profile as ProfileRow).virtual_wallet + amount;
 
       const updateData: ProfileUpdate = { virtual_wallet: newBalance };
       const { error: updateError } = await supabase
@@ -127,7 +127,7 @@ export const walletService = {
       const transaction = {
         user_id: userId,
         transaction_type: 'credit',
-        amount: Math.round(amount),
+        amount: amount,
         wallet_type: 'virtual',
         kind: 'cashback',
         order_id: orderId,
@@ -280,7 +280,7 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch profile' };
       }
 
-      const amountInRupees = Math.round(amount);
+      const amountInRupees = amount;
 
       if ((profile as ProfileRow).actual_wallet < amountInRupees) {
         return { success: false, error: 'Insufficient actual wallet balance' };
@@ -343,7 +343,7 @@ export const walletService = {
         return { success: false, error: 'Failed to fetch profile' };
       }
 
-      const amountInRupees = Math.round(amount);
+      const amountInRupees = amount;
       const newBalance = (profile as ProfileRow).actual_wallet + amountInRupees;
 
       const updateData: ProfileUpdate = { actual_wallet: newBalance };
