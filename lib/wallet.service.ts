@@ -124,12 +124,11 @@ export const walletService = {
         return { success: false, error: 'Failed to update balance' };
       }
 
-      const transaction: WalletTransactionInsert = {
+      const transaction = {
         user_id: userId,
-        type: 'cashback',
+        transaction_type: 'credit',
         amount: Math.round(amount),
         wallet_type: 'virtual',
-        direction: 'credit',
         kind: 'cashback',
         order_id: orderId,
         description: `Cashback for order #${orderId.slice(-6)}`,
@@ -192,15 +191,13 @@ export const walletService = {
         return { success: false, error: 'Failed to update balances' };
       }
 
-      const virtualDebitTxn: WalletTransactionInsert = {
+      const virtualDebitTxn = {
         user_id: referrerId,
-        type: 'referral',
+        transaction_type: 'debit',
         amount: amountInRupees,
         wallet_type: 'virtual',
-        direction: 'debit',
         kind: 'adjustment',
         order_id: orderId,
-        referee_user_id: refereeId,
         description: `Referral conversion from order #${orderId.slice(-6)}`,
         balance_after: newVirtualBalance,
       };
@@ -218,15 +215,13 @@ export const walletService = {
 
       const virtualTxnId = (virtualTxn as { id: string }).id;
 
-      const actualCreditTxn: WalletTransactionInsert = {
+      const actualCreditTxn = {
         user_id: referrerId,
-        type: 'referral',
+        transaction_type: 'credit',
         amount: amountInRupees,
         wallet_type: 'actual',
-        direction: 'credit',
-        kind: 'adjustment',
+        kind: 'referral_reward',
         order_id: orderId,
-        referee_user_id: refereeId,
         description: `Referral conversion to Actual Wallet`,
         balance_after: newActualBalance,
       };
@@ -305,12 +300,11 @@ export const walletService = {
         return { success: false, error: 'Failed to update balance' };
       }
 
-      const transaction: WalletTransactionInsert = {
+      const transaction = {
         user_id: userId,
-        type: 'redemption',
+        transaction_type: 'debit',
         amount: amountInRupees,
         wallet_type: 'actual',
-        direction: 'debit',
         kind: 'order_payment',
         order_id: orderId,
         description: `Wallet redeemed for order #${orderId.slice(-6)}`,
@@ -364,12 +358,11 @@ export const walletService = {
         return { success: false, error: 'Failed to update balance' };
       }
 
-      const transaction: WalletTransactionInsert = {
+      const transaction = {
         user_id: userId,
-        type: 'refund',
+        transaction_type: 'credit',
         amount: amountInRupees,
         wallet_type: 'actual',
-        direction: 'credit',
         kind: 'refund',
         order_id: orderId,
         description: `Refund for order #${orderId.slice(-6)}`,

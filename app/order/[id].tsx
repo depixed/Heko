@@ -405,7 +405,7 @@ export default function OrderDetailsScreen() {
             </TouchableOpacity>
           )}
           {canCancel && (
-create            <TouchableOpacity 
+            <TouchableOpacity 
               style={[styles.cancelButton, isCanceling && styles.cancelButtonDisabled]} 
               onPress={cancelOrder}
               disabled={isCanceling}

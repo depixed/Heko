@@ -303,6 +303,7 @@ export interface Database {
           delivery_otp: string | null;
           delivery_partner_id: string | null;
           delivery_window: string | null;
+          contactless_delivery: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -321,6 +322,7 @@ export interface Database {
           delivery_otp?: string | null;
           delivery_partner_id?: string | null;
           delivery_window?: string | null;
+          contactless_delivery?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -339,6 +341,7 @@ export interface Database {
           delivery_otp?: string | null;
           delivery_partner_id?: string | null;
           delivery_window?: string | null;
+          contactless_delivery?: boolean;
           created_at?: string;
           updated_at?: string;
         };

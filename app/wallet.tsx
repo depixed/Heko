@@ -62,8 +62,8 @@ export default function WalletScreen() {
           processedIds.add(txn.id);
           processedIds.add(pair.id);
 
-          const debit = txn.kind === 'ADJUSTMENT' ? txn : pair;
-          const credit = txn.kind === 'REFERRAL_REWARD' ? txn : pair;
+          const debit = txn.direction === 'DEBIT' ? txn : pair;
+          const credit = txn.direction === 'CREDIT' ? txn : pair;
 
           groups.push({
             type: 'conversion',
@@ -170,10 +170,41 @@ export default function WalletScreen() {
              txnDate.getFullYear() === now.getFullYear();
     });
 
-    const virtualIncome = thisMonth.filter(t => t.walletType === 'virtual' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-    const actualIncome = thisMonth.filter(t => t.walletType === 'actual' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-    const actualSpends = Math.abs(thisMonth.filter(t => t.walletType === 'actual' && t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
-    const conversions = thisMonth.filter(t => t.kind === 'REFERRAL_REWARD' && t.direction === 'CREDIT' && t.walletType === 'actual').reduce((sum, t) => sum + t.amount, 0);
+    // Virtual Income: Total cashback received on user's own orders (virtual wallet credits for cashback)
+    const virtualIncome = thisMonth
+      .filter(t => 
+        t.walletType === 'virtual' && 
+        t.direction === 'CREDIT' && 
+        t.kind === 'CASHBACK'
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Actual Income: Total value added to actual wallet (conversions + refunds)
+    const actualIncome = thisMonth
+      .filter(t => 
+        t.walletType === 'actual' && 
+        t.direction === 'CREDIT' && 
+        (t.kind === 'REFERRAL_REWARD' || t.kind === 'REFUND')
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Spent: Total amount spent from actual wallet for orders (actual wallet debits for order payments)
+    const actualSpends = thisMonth
+      .filter(t => 
+        t.walletType === 'actual' && 
+        t.direction === 'DEBIT' && 
+        t.kind === 'ORDER_PAYMENT'
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Converted: Total converted values from virtual to actual wallet (referral reward credits to actual wallet)
+    const conversions = thisMonth
+      .filter(t => 
+        t.walletType === 'actual' && 
+        t.direction === 'CREDIT' && 
+        t.kind === 'REFERRAL_REWARD'
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
 
     return { virtualIncome, actualIncome, actualSpends, conversions };
   }, [wallet.transactions]);

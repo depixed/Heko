@@ -124,6 +124,7 @@ export default function CheckoutScreen() {
         total: Math.round(finalPayable),
         walletUsed: Math.round(actualApplied),
         deliveryNotes,
+        contactlessDelivery,
       });
 
       if (result.success && result.data) {
