@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { walletService } from './wallet.service';
 import type { Database } from '@/types/database';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
@@ -32,6 +33,7 @@ export interface CreateOrderData {
   walletUsed: number;
   deliveryNotes?: string;
   deliveryWindow?: string; // ISO string if provided
+  contactlessDelivery?: boolean;
 }
 
 export interface OrderFilters {
@@ -91,6 +93,7 @@ export const orderService = {
           orderData.deliveryWindow && !Number.isNaN(Date.parse(orderData.deliveryWindow))
             ? new Date(orderData.deliveryWindow).toISOString()
             : null,
+        contactless_delivery: orderData.contactlessDelivery ?? false,
       };
 
       const { data: order, error: orderError } = await supabase
@@ -105,6 +108,25 @@ export const orderService = {
       }
 
       const orderId = (order as OrderRow).id;
+
+      // Process wallet payment if wallet was used
+      if (orderData.walletUsed > 0) {
+        console.log('[ORDER] Processing wallet payment:', orderData.walletUsed);
+        const walletResult = await walletService.redeemWallet(
+          orderData.userId, 
+          orderData.walletUsed, 
+          orderId
+        );
+
+        if (!walletResult.success) {
+          console.error('[ORDER] Wallet payment failed:', walletResult.error);
+          // Rollback the order creation
+          await supabase.from('orders').delete().eq('id', orderId);
+          return { success: false, error: walletResult.error || 'Wallet payment failed' };
+        }
+        console.log('[ORDER] Wallet payment processed successfully');
+      }
+
       // Fetch unit prices and product info from products table to ensure correctness
       const productIds = [...new Set(orderData.items.map(i => i.productId))];
       const { data: products, error: productsError } = await supabase

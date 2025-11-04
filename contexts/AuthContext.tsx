@@ -99,7 +99,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 type: (txn.type || 'CASHBACK').toUpperCase() as keyof typeof import('@/constants/config').WALLET_TRANSACTION_TYPES,
                 amount: txn.amount || 0,
                 walletType: txn.wallet_type || 'virtual',
-                direction: (txn.direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
+                direction: ((txn as any).transaction_type || (txn as any).direction || 'CREDIT').toUpperCase() as 'CREDIT' | 'DEBIT',
                 kind: (txn.kind || 'CASHBACK').toUpperCase() as 'CASHBACK' | 'REFERRAL_REWARD' | 'REFUND' | 'ORDER_PAYMENT' | 'ADJUSTMENT',
                 orderId: txn.order_id || undefined,
                 refereeUserId: txn.referee_user_id || undefined,
