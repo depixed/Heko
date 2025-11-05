@@ -240,8 +240,8 @@ export const walletService = {
       const actualTxnId = (actualTxn as { id: string }).id;
 
       const conversionRecord: ReferralConversionInsert = {
-        referrer_user_id: referrerId,
-        referee_user_id: refereeId,
+        referrer_id: referrerId,
+        referee_id: refereeId,
         order_id: orderId,
         conversion_amount: amountInRupees,
         virtual_debit_txn_id: virtualTxnId,

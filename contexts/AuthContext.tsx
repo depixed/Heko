@@ -118,7 +118,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const { data: conversions } = await supabase
             .from('referral_conversions')
             .select('*')
-            .eq('referrer_user_id', sessionResult.user.id)
+            .eq('referrer_id', sessionResult.user.id)
             .order('created_at', { ascending: false });
 
           if (conversions) {
@@ -305,7 +305,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const { data: conversions } = await supabase
         .from('referral_conversions')
         .select('*')
-        .eq('referrer_user_id', userData.id)
+        .eq('referrer_id', userData.id)
         .order('created_at', { ascending: false });
 
       if (conversions) {
