@@ -51,21 +51,28 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
       console.log('[ProductContext] Loading products');
       const result = await catalogService.getProducts();
       if (result.success && result.data) {
-        const appProducts: Product[] = result.data.map((prod: ProductWithRelations) => ({
-          id: prod.id,
-          name: prod.name,
-          description: prod.description || '',
-          image: prod.image || 'https://via.placeholder.com/300',
-          images: [prod.image || 'https://via.placeholder.com/300'],
-          price: prod.price,
-          mrp: prod.mrp,
-          discount: prod.discount,
-          unit: prod.unit || 'unit',
-          category: prod.categories?.name || '',
-          subcategory: prod.subcategories?.name || '',
-          inStock: prod.in_stock,
-          tags: prod.tags || [],
-        }));
+        const appProducts: Product[] = result.data.map((prod: ProductWithRelations) => {
+          // Handle images array from database
+          const imageArray = Array.isArray(prod.images) && prod.images.length > 0 
+            ? prod.images 
+            : ['https://via.placeholder.com/300'];
+          
+          return {
+            id: prod.id,
+            name: prod.name,
+            description: prod.description || '',
+            image: imageArray[0], // Use first image as primary
+            images: imageArray,
+            price: prod.price,
+            mrp: prod.mrp,
+            discount: prod.discount,
+            unit: prod.unit || 'unit',
+            category: prod.categories?.name || '',
+            subcategory: prod.subcategories?.name || '',
+            inStock: prod.in_stock,
+            tags: prod.tags || [],
+          };
+        });
         setProducts(appProducts);
         console.log('[ProductContext] Products loaded:', appProducts.length);
       }
@@ -97,21 +104,28 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
       console.log('[ProductContext] Searching products:', query);
       const result = await catalogService.searchProducts(query);
       if (result.success && result.data) {
-        const searchResults: Product[] = result.data.map((prod: ProductWithRelations) => ({
-          id: prod.id,
-          name: prod.name,
-          description: prod.description || '',
-          image: prod.image || 'https://via.placeholder.com/300',
-          images: [prod.image || 'https://via.placeholder.com/300'],
-          price: prod.price,
-          mrp: prod.mrp,
-          discount: prod.discount,
-          unit: prod.unit || 'unit',
-          category: prod.categories?.name || '',
-          subcategory: prod.subcategories?.name || '',
-          inStock: prod.in_stock,
-          tags: prod.tags || [],
-        }));
+        const searchResults: Product[] = result.data.map((prod: ProductWithRelations) => {
+          // Handle images array from database
+          const imageArray = Array.isArray(prod.images) && prod.images.length > 0 
+            ? prod.images 
+            : ['https://via.placeholder.com/300'];
+          
+          return {
+            id: prod.id,
+            name: prod.name,
+            description: prod.description || '',
+            image: imageArray[0], // Use first image as primary
+            images: imageArray,
+            price: prod.price,
+            mrp: prod.mrp,
+            discount: prod.discount,
+            unit: prod.unit || 'unit',
+            category: prod.categories?.name || '',
+            subcategory: prod.subcategories?.name || '',
+            inStock: prod.in_stock,
+            tags: prod.tags || [],
+          };
+        });
         return searchResults;
       }
       return [];

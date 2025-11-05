@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Wallet, Gift, MapPin, Bell, HelpCircle, FileText, LogOut, Trash2, ChevronRight, Edit3 } from 'lucide-react-native';
@@ -34,30 +34,48 @@ export default function ProfileScreen() {
   }
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: async () => {
-          await logout();
+    if (Platform.OS === 'web') {
+      // Web-specific confirmation using native browser confirm
+      if (window.confirm('Are you sure you want to logout?')) {
+        logout().then(() => {
           router.replace('/auth/' as any);
-        }},
-      ]
-    );
+        });
+      }
+    } else {
+      // Mobile-specific confirmation using Alert
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Logout', style: 'destructive', onPress: async () => {
+            await logout();
+            router.replace('/auth/' as any);
+          }},
+        ]
+      );
+    }
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {
-          Alert.alert('Account Deletion', 'Your account deletion request has been submitted.');
-        }},
-      ]
-    );
+    if (Platform.OS === 'web') {
+      // Web-specific confirmation using native browser confirm
+      if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        window.alert('Your account deletion request has been submitted.');
+      }
+    } else {
+      // Mobile-specific confirmation using Alert
+      Alert.alert(
+        'Delete Account',
+        'Are you sure you want to delete your account? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => {
+            Alert.alert('Account Deletion', 'Your account deletion request has been submitted.');
+          }},
+        ]
+      );
+    }
   };
 
   return (

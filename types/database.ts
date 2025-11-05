@@ -524,8 +524,8 @@ export interface Database {
       referral_conversions: {
         Row: {
           id: string;
-          referrer_user_id: string;
-          referee_user_id: string;
+          referrer_id: string;
+          referee_id: string;
           order_id: string;
           conversion_amount: number;
           virtual_debit_txn_id: string;
@@ -534,8 +534,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          referrer_user_id: string;
-          referee_user_id: string;
+          referrer_id: string;
+          referee_id: string;
           order_id: string;
           conversion_amount: number;
           virtual_debit_txn_id: string;
@@ -544,8 +544,8 @@ export interface Database {
         };
         Update: {
           id?: string;
-          referrer_user_id?: string;
-          referee_user_id?: string;
+          referrer_id?: string;
+          referee_id?: string;
           order_id?: string;
           conversion_amount?: number;
           virtual_debit_txn_id?: string;
