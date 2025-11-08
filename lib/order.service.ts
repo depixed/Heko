@@ -150,7 +150,28 @@ export const orderService = {
           throw new Error(`Product not found: ${item.productId}`);
         }
         const unitPrice = p.price;
-        const firstImage = Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : '';
+        // Extract first image and validate it's a valid URL
+        // Store the actual Supabase image URL, or empty string if none exists
+        // UI will handle placeholder display
+        let firstImage = '';
+        if (Array.isArray(p.images) && p.images.length > 0) {
+          const imageUrl = p.images[0];
+          // Only use if it's a valid HTTP/HTTPS URL (Supabase storage URLs)
+          if (imageUrl && 
+              typeof imageUrl === 'string' && 
+              (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) &&
+              !imageUrl.startsWith('blob:') && 
+              !imageUrl.includes('localhost')) {
+            firstImage = imageUrl;
+            console.log('[ORDER] Storing product image URL:', firstImage, 'for product:', p.name);
+          } else {
+            console.warn('[ORDER] Invalid image URL format:', imageUrl, 'for product:', p.name);
+          }
+        } else {
+          console.warn('[ORDER] No images array found for product:', p.name);
+        }
+        // Store empty string if no valid image - UI will show placeholder component
+        // Don't store placeholder URL that might fail to load
         const totalPrice = unitPrice * item.quantity;
         return {
           order_id: orderId,

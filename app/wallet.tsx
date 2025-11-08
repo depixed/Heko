@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -32,18 +33,34 @@ type TransactionGroup = {
 export default function WalletScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { wallet, isAuthenticated, user } = useAuth();
+  const { wallet, isAuthenticated, user, isLoading } = useAuth();
   const [selectedWalletType, setSelectedWalletType] = useState<WalletTypeFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [flowTypeFilter, setFlowTypeFilter] = useState<FlowTypeFilter>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Redirect to auth if not logged in
-  React.useEffect(() => {
+  // Ensure component is mounted before navigation (fixes web refresh issue)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Redirect to auth if not logged in (only after auth loading is complete and component is mounted)
+  useEffect(() => {
+    if (!isMounted || isLoading) return; // Wait for auth to finish loading
+    
     if (!isAuthenticated) {
-      router.replace('/auth');
+      // On web, add a small delay to ensure router is ready
+      if (Platform.OS === 'web') {
+        const timer = setTimeout(() => {
+          router.replace('/auth');
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        router.replace('/auth');
+      }
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isMounted, isLoading, router]);
 
   const transactionGroups = useMemo(() => {
     const groups: TransactionGroup[] = [];
@@ -276,6 +293,28 @@ export default function WalletScreen() {
         return '💰';
     }
   };
+
+  // Show loading state while auth is initializing
+  if (isLoading || !isMounted) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerTitle: 'My Wallet',
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+                <ChevronLeft size={24} color={Colors.text.primary} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -1044,6 +1083,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyStateText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
     fontSize: 16,
     color: Colors.text.secondary,
     textAlign: 'center',

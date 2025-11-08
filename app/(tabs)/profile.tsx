@@ -96,7 +96,11 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
         <TouchableOpacity style={styles.profileCard} onPress={() => router.push('/profile/edit' as any)}>
           <View style={styles.avatar}>
             <User size={32} color={Colors.text.inverse} />
