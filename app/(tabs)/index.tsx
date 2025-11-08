@@ -153,7 +153,11 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
             <Search size={20} color={Colors.text.tertiary} />

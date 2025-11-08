@@ -7,9 +7,10 @@ import {
   Image,
   Animated,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { ChevronLeft, Truck, Package, MessageCircle, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Truck, Package, MessageCircle, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react-native';
 import { useState, useRef, useEffect } from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +25,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cart, addToCart, updateCartItem, cartTotal } = useAuth();
   const { getProductById, getProductsByCategory } = useProducts();
+  const { width: screenWidth } = useWindowDimensions();
 
   const product = getProductById(id as string);
   const similarProducts = product
@@ -31,10 +33,21 @@ export default function ProductDetailScreen() {
     : [];
 
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const descriptionHeight = useRef(new Animated.Value(0)).current;
+  const imageScrollViewRef = useRef<ScrollView>(null);
 
   const cartItem = cart.find((item) => item.product.id === id);
   const quantity = cartItem?.quantity || 0;
+
+  // Get all images for the product
+  const productImages = product?.images && product.images.length > 0 
+    ? product.images 
+    : product?.image 
+      ? [product.image] 
+      : [];
+  
+  const hasMultipleImages = productImages.length > 1;
 
   useEffect(() => {
     Animated.timing(descriptionHeight, {
@@ -43,6 +56,12 @@ export default function ProductDetailScreen() {
       useNativeDriver: false,
     }).start();
   }, [descriptionExpanded, descriptionHeight]);
+
+  // Reset image index when product changes
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    imageScrollViewRef.current?.scrollTo({ x: 0, animated: false });
+  }, [id]);
 
   if (!product) {
     return (
@@ -84,6 +103,35 @@ export default function ProductDetailScreen() {
     addToCart({ product: similarProduct, quantity: 1 });
   };
 
+  const handleImageScroll = (event: any) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const imageWidth = event.nativeEvent.layoutMeasurement.width;
+    const currentIndex = Math.round(contentOffsetX / imageWidth);
+    setCurrentImageIndex(currentIndex);
+  };
+
+  const goToPreviousImage = () => {
+    if (currentImageIndex > 0) {
+      const newIndex = currentImageIndex - 1;
+      setCurrentImageIndex(newIndex);
+      imageScrollViewRef.current?.scrollTo({
+        x: newIndex * screenWidth,
+        animated: true,
+      });
+    }
+  };
+
+  const goToNextImage = () => {
+    if (currentImageIndex < productImages.length - 1) {
+      const newIndex = currentImageIndex + 1;
+      setCurrentImageIndex(newIndex);
+      imageScrollViewRef.current?.scrollTo({
+        x: newIndex * screenWidth,
+        animated: true,
+      });
+    }
+  };
+
   const maxDescriptionHeight = descriptionHeight.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 500],
@@ -105,7 +153,72 @@ export default function ProductDetailScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.heroContainer}>
-          <Image source={{ uri: product.image }} style={styles.heroImage} resizeMode="contain" />
+          {hasMultipleImages ? (
+            <View style={styles.imageCarouselContainer}>
+              <ScrollView
+                ref={imageScrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={handleImageScroll}
+                style={styles.imageCarousel}
+                contentContainerStyle={styles.imageCarouselContent}
+                scrollEventThrottle={16}
+              >
+                {productImages.map((imageUri, index) => (
+                  <View key={index} style={[styles.imageSlide, { width: screenWidth }]}>
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={styles.heroImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+              
+              {/* Navigation Arrows */}
+              <TouchableOpacity
+                style={[
+                  styles.navArrow,
+                  styles.navArrowLeft,
+                  currentImageIndex === 0 && styles.navArrowDisabled,
+                ]}
+                onPress={goToPreviousImage}
+                disabled={currentImageIndex === 0}
+                activeOpacity={0.7}
+              >
+                <ChevronLeft size={24} color={Colors.text.inverse} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.navArrow,
+                  styles.navArrowRight,
+                  currentImageIndex === productImages.length - 1 && styles.navArrowDisabled,
+                ]}
+                onPress={goToNextImage}
+                disabled={currentImageIndex === productImages.length - 1}
+                activeOpacity={0.7}
+              >
+                <ChevronRight size={24} color={Colors.text.inverse} />
+              </TouchableOpacity>
+
+              {/* Image Indicator Dots */}
+              <View style={styles.imageIndicators}>
+                {productImages.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.indicatorDot,
+                      index === currentImageIndex && styles.indicatorDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Image source={{ uri: product.image }} style={styles.heroImage} resizeMode="contain" />
+          )}
         </View>
 
         <View style={styles.contentContainer}>
@@ -337,6 +450,63 @@ const styles = StyleSheet.create({
   heroImage: {
     width: 280,
     height: 280,
+  },
+  imageCarouselContainer: {
+    width: '100%',
+    position: 'relative',
+  },
+  imageCarousel: {
+    width: '100%',
+  },
+  imageCarouselContent: {
+    alignItems: 'center',
+  },
+  imageSlide: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navArrow: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  navArrowDisabled: {
+    opacity: 0.3,
+  },
+  navArrowLeft: {
+    left: 16,
+  },
+  navArrowRight: {
+    right: 16,
+  },
+  imageIndicators: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  indicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  indicatorDotActive: {
+    backgroundColor: Colors.brand.primary,
+    width: 24,
   },
   contentContainer: {
     padding: 16,

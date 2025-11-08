@@ -71,7 +71,11 @@ export default function OrdersScreen() {
         <Text style={styles.headerTitle}>My Orders</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
         {!isAuthenticated ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🔒</Text>
@@ -107,18 +111,65 @@ export default function OrdersScreen() {
                 </View>
 
                 <View style={styles.orderItems}>
-                  {(order.order_items || []).slice(0, 2).map((item, index) => (
-                    <View key={index} style={styles.orderItem}>
-                      <Image 
-                        source={{ uri: item.product_image || 'https://via.placeholder.com/48' }} 
-                        style={styles.itemImage} 
-                      />
-                      <View style={styles.itemInfo}>
-                        <Text style={styles.itemName} numberOfLines={1}>{item.product_name || 'Product'}</Text>
-                        <Text style={styles.itemQuantity}>Qty: {item.quantity} • {item.status}</Text>
+                  {(order.order_items || []).slice(0, 2).map((item, index) => {
+                    // Validate and sanitize image URL
+                    const getImageUri = () => {
+                      const imageUrl = item.product_image;
+                      
+                      // Debug: Log the actual image URL
+                      console.log('[Orders] Product image URL:', imageUrl, 'for product:', item.product_name);
+                      
+                      // Check if imageUrl is valid (not empty, null, undefined)
+                      if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+                        console.warn('[Orders] Empty or invalid image URL, using fallback');
+                        return null; // Return null to show placeholder component
+                      }
+                      
+                      // Check if it's a valid HTTP/HTTPS URL (including Supabase storage URLs)
+                      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                        // Additional validation: ensure it's not a blob URL or localhost
+                        if (imageUrl.startsWith('blob:') || imageUrl.includes('localhost')) {
+                          console.warn('[Orders] Blob or localhost URL detected, using fallback');
+                          return null;
+                        }
+                        console.log('[Orders] Using valid image URL:', imageUrl);
+                        return imageUrl;
+                      }
+                      
+                      // If it's a local file path or invalid, return null for placeholder
+                      console.warn('[Orders] Invalid URL format, using fallback');
+                      return null;
+                    };
+
+                    const imageUri = getImageUri();
+
+                    return (
+                      <View key={index} style={styles.orderItem}>
+                        {imageUri ? (
+                          <Image 
+                            source={{ uri: imageUri }} 
+                            style={styles.itemImage}
+                            onError={(error) => {
+                              console.error('[Orders] Image load failed for URL:', imageUri, 'Error:', error.nativeEvent.error);
+                            }}
+                            onLoad={() => {
+                              console.log('[Orders] Image loaded successfully:', imageUri);
+                            }}
+                          />
+                        ) : (
+                          <View style={styles.itemImagePlaceholder}>
+                            <Text style={styles.itemImagePlaceholderText}>
+                              {item.product_name?.charAt(0).toUpperCase() || '?'}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={styles.itemInfo}>
+                          <Text style={styles.itemName} numberOfLines={1}>{item.product_name || 'Product'}</Text>
+                          <Text style={styles.itemQuantity}>Qty: {item.quantity} • {item.status}</Text>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                   {(order.order_items?.length || 0) > 2 && (
                     <Text style={styles.moreItems}>+{(order.order_items?.length || 0) - 2} more items</Text>
                   )}
@@ -248,6 +299,22 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
+    backgroundColor: Colors.background.secondary,
+  },
+  itemImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: Colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  itemImagePlaceholderText: {
+    fontSize: 20,
+    fontWeight: '600' as const,
+    color: Colors.text.tertiary,
   },
   itemInfo: {
     flex: 1,

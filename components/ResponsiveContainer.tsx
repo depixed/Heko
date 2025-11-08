@@ -17,10 +17,9 @@ export default function ResponsiveContainer({
     return <View style={{ flex: 1 }}>{children}</View>;
   }
   
-  const horizontal = Math.max(padding, (width - maxWidth) / 2);
-  
+  // Remove horizontal padding to eliminate gray areas on sides
   return (
-    <View style={{ flex: 1, paddingLeft: horizontal, paddingRight: horizontal }}>
+    <View style={{ flex: 1 }}>
       {children}
     </View>
   );

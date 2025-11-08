@@ -2,12 +2,26 @@ import { Tabs } from "expo-router";
 import { Home, Grid3x3, ShoppingBag, User } from "lucide-react-native";
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  
+  // Calculate dynamic tab bar height and padding
+  // Base height: 65px for Android, 85px for iOS, 70px for web
+  // Add bottom inset for devices with system navigation bar
+  const baseHeight = Platform.OS === 'ios' ? 85 : Platform.OS === 'web' ? 70 : 65;
+  const basePaddingBottom = Platform.OS === 'ios' ? 20 : Platform.OS === 'web' ? 10 : 5;
+  
+  // Use bottom inset if it's greater than base padding (indicates system nav bar)
+  // On gesture navigation devices, bottom inset is typically 0 or very small
+  const paddingBottom = Math.max(basePaddingBottom, insets.bottom);
+  const tabBarHeight = baseHeight + Math.max(0, insets.bottom - basePaddingBottom);
+  
   return (
     <View style={styles.tabBarContainer}>
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { height: tabBarHeight, paddingBottom }]}>
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const label = options.tabBarLabel ?? options.title ?? route.name;
@@ -83,8 +97,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background.primary,
     borderTopWidth: 1,
     borderTopColor: Colors.border.light,
-    height: Platform.OS === 'ios' ? 85 : Platform.OS === 'web' ? 70 : 65,
-    paddingBottom: Platform.OS === 'ios' ? 20 : Platform.OS === 'web' ? 10 : 5,
+    // height and paddingBottom are now set dynamically in the component
   },
   tabItem: {
     flex: 1,

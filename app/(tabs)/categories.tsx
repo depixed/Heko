@@ -16,7 +16,11 @@ export default function CategoriesScreen() {
         <Text style={styles.headerTitle}>Categories</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
         <View style={styles.grid}>
           {categories.map((category) => (
             <TouchableOpacity
