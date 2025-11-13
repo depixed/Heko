@@ -301,12 +301,7 @@ export default function WalletScreen() {
         <Stack.Screen
           options={{
             headerShown: true,
-            headerTitle: 'My Wallet',
-            headerLeft: () => (
-              <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                <ChevronLeft size={24} color={Colors.text.primary} />
-              </TouchableOpacity>
-            ),
+            title: 'My Wallet',
           }}
         />
         <View style={styles.loadingContainer}>

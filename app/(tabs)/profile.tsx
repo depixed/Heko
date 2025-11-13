@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { APP_CONFIG } from '@/constants/config';
 import React from "react";
+import TopNav from '@/components/TopNav';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -18,9 +19,7 @@ export default function ProfileScreen() {
   if (!isAuthenticated || !user) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
+        <TopNav showBackButton={false} title="Profile" />
         <View style={styles.loginPrompt}>
           <Text style={styles.loginEmoji}>👤</Text>
           <Text style={styles.loginTitle}>Login to Continue</Text>
@@ -80,21 +79,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity
-          style={styles.bellButton}
-          onPress={() => router.push('/notifications' as any)}
-          testID="notifications-button"
-        >
-          <Bell size={24} color={Colors.text.primary} />
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <TopNav showBackButton={false} title="Profile" />
 
       <ScrollView 
         style={styles.content} 
@@ -278,39 +263,6 @@ const styles = StyleSheet.create({
     color: Colors.text.inverse,
     fontSize: 16,
     fontWeight: '600' as const,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-  },
-  bellButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.background.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative' as const,
-  },
-  badge: {
-    position: 'absolute' as const,
-    top: 6,
-    right: 6,
-    backgroundColor: Colors.brand.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    borderWidth: 2,
-    borderColor: Colors.background.primary,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: Colors.text.inverse,
   },
   content: {
     flex: 1,

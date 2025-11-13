@@ -131,13 +131,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
       },
       android: {
         elevation: 8,

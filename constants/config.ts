@@ -39,6 +39,16 @@ export const APP_CONFIG = {
     WINDOW_DAYS: 7,
     PER_ITEM_ALLOWED: true,
   },
+  
+  BANNER: {
+    CACHE_DURATION: 15 * 60 * 1000, // 15 minutes in milliseconds
+    AUTO_PLAY_INTERVAL: 5000,       // 5 seconds
+    IMPRESSION_THRESHOLD: 0.5,      // 50% visibility required
+    IMPRESSION_DURATION: 1000,      // 1 second minimum visibility
+    RETRY_ATTEMPTS: 3,
+    RETRY_DELAY: 1000,              // 1 second between retries
+    ENABLED: true,
+  },
 } as const;
 
 export const ORDER_STATUS = {

@@ -156,6 +156,123 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   };
 
+  const refreshReferralStats = useCallback(async (userId: string) => {
+    try {
+      console.log('[AuthContext] ===== REFRESHING REFERRAL STATS =====');
+      console.log('[AuthContext] User ID:', userId);
+      
+      // Load referral conversions - this is the source of truth for earnings
+      const { data: conversions, error: conversionsError } = await supabase
+        .from('referral_conversions')
+        .select('*')
+        .eq('referrer_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (conversionsError) {
+        console.error('[AuthContext] Error loading referral conversions:', conversionsError);
+      }
+
+      console.log('[AuthContext] Total conversions found:', conversions?.length || 0);
+      if (conversions && conversions.length > 0) {
+        console.log('[AuthContext] Sample conversion data:', JSON.stringify(conversions[0], null, 2));
+      }
+
+      // Calculate earnings from referral_conversions.reward_amount
+      let lifetimeEarnings = 0;
+      let thisMonthEarnings = 0;
+      
+      if (conversions && conversions.length > 0) {
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        thisMonthStart.setHours(0, 0, 0, 0);
+
+        console.log('[AuthContext] Calculating earnings from reward_amount field');
+        console.log('[AuthContext] This month start date:', thisMonthStart.toISOString());
+
+        // Calculate lifetime earnings from reward_amount
+        lifetimeEarnings = conversions.reduce((sum: number, c: any) => {
+          const rewardAmount = Number(c.reward_amount) || 0;
+          console.log(`[AuthContext] Conversion ${c.id}: reward_amount = ${c.reward_amount}, parsed = ${rewardAmount}`);
+          return sum + rewardAmount;
+        }, 0);
+
+        // Calculate this month earnings
+        const thisMonthConversions = conversions.filter((c: any) => {
+          const conversionDate = new Date(c.created_at);
+          return conversionDate >= thisMonthStart;
+        });
+
+        console.log('[AuthContext] This month conversions count:', thisMonthConversions.length);
+
+        thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => {
+          const rewardAmount = Number(c.reward_amount) || 0;
+          console.log(`[AuthContext] This month conversion ${c.id}: reward_amount = ${c.reward_amount}, parsed = ${rewardAmount}`);
+          return sum + rewardAmount;
+        }, 0);
+
+        console.log('[AuthContext] Earnings calculation summary:', {
+          totalConversions: conversions.length,
+          thisMonthConversions: thisMonthConversions.length,
+          lifetimeEarnings,
+          thisMonthEarnings,
+        });
+      } else {
+        console.log('[AuthContext] No conversions found, earnings will be 0');
+      }
+
+      // Calculate friends joined and active shoppers from conversions
+      let totalReferred = 0;
+      let activeReferrers = 0;
+      let convertedThisMonth = 0;
+      let lifetimeConverted = 0;
+
+      if (conversions) {
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        thisMonth.setHours(0, 0, 0, 0);
+
+        const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
+        
+        // Get unique referee IDs to count friends joined
+        const uniqueReferees = new Set(conversions.map((c: any) => c.referee_id));
+        totalReferred = uniqueReferees.size;
+        
+        // Active shoppers are those who have made orders (have conversions)
+        activeReferrers = conversions.length;
+        convertedThisMonth = thisMonthConversions.length;
+        lifetimeConverted = conversions.length;
+
+        console.log('[AuthContext] Friends/Active shoppers calculation:', {
+          uniqueReferees: totalReferred,
+          totalConversions: activeReferrers,
+          thisMonthConversions: convertedThisMonth,
+        });
+      }
+
+      setReferralStats({
+        totalReferred,
+        activeReferrers,
+        lifetimeEarnings,
+        thisMonthEarnings,
+        convertedThisMonth,
+        lifetimeConverted,
+        referrals: [],
+      });
+      
+      console.log('[AuthContext] ===== REFERRAL STATS REFRESHED =====');
+      console.log('[AuthContext] Final stats:', {
+        totalReferred,
+        activeReferrers,
+        lifetimeEarnings,
+        thisMonthEarnings,
+        convertedThisMonth,
+        lifetimeConverted,
+      });
+    } catch (error) {
+      console.error('[AuthContext] Error refreshing referral stats:', error);
+    }
+  }, []);
+
   const setupRealtimeSubscriptions = (userId: string) => {
     console.log('[AuthContext] Setting up real-time subscriptions for user:', userId);
     
@@ -201,6 +318,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         },
         async (payload) => {
           console.log('[AuthContext] New wallet transaction:', payload.new);
+          const transaction = payload.new as any;
+          
           // Reload wallet data when new transaction occurs
           try {
             const balanceResult = await walletService.getWalletBalance(userId);
@@ -236,6 +355,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 actualBalance: balanceResult.data.actualBalance || 0,
                 transactions: appTransactions,
               });
+
+              // Refresh referral stats if this is a referral reward transaction
+              // Note: We now use referral_conversions table, but still refresh on wallet transaction
+              // to ensure stats are updated when conversions happen
+              if (transaction && 
+                  transaction.kind === 'referral_reward' && 
+                  transaction.wallet_type === 'actual' && 
+                  transaction.transaction_type === 'credit') {
+                console.log('[AuthContext] Referral reward transaction detected, refreshing stats');
+                refreshReferralStats(userId);
+              }
             }
           } catch (error) {
             console.error('[AuthContext] Error reloading wallet:', error);
@@ -244,9 +374,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       )
       .subscribe();
 
+    // Subscribe to referral_conversions table changes
+    const referralSubscription = supabase
+      .channel(`referral-conversions-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'referral_conversions',
+          filter: `referrer_id=eq.${userId}`,
+        },
+        async (payload) => {
+          console.log('[AuthContext] New referral conversion detected:', payload.new);
+          console.log('[AuthContext] Refreshing referral stats due to new conversion');
+          refreshReferralStats(userId);
+        }
+      )
+      .subscribe();
+
     return () => {
       profileSubscription.unsubscribe();
       walletSubscription.unsubscribe();
+      referralSubscription.unsubscribe();
     };
   };
 
@@ -301,12 +451,73 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
     // Load referral stats
     try {
-      console.log('[AuthContext] Loading referral stats for user:', userData.id);
-      const { data: conversions } = await supabase
+      console.log('[AuthContext] ===== LOADING REFERRAL STATS =====');
+      console.log('[AuthContext] User ID:', userData.id);
+      
+      // Load referral conversions - this is the source of truth for earnings
+      const { data: conversions, error: conversionsError } = await supabase
         .from('referral_conversions')
         .select('*')
         .eq('referrer_id', userData.id)
         .order('created_at', { ascending: false });
+
+      if (conversionsError) {
+        console.error('[AuthContext] Error loading referral conversions:', conversionsError);
+      }
+
+      console.log('[AuthContext] Total conversions found:', conversions?.length || 0);
+      if (conversions && conversions.length > 0) {
+        console.log('[AuthContext] Sample conversion data:', JSON.stringify(conversions[0], null, 2));
+      }
+
+      // Calculate earnings from referral_conversions.reward_amount
+      let lifetimeEarnings = 0;
+      let thisMonthEarnings = 0;
+      
+      if (conversions && conversions.length > 0) {
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        thisMonthStart.setHours(0, 0, 0, 0);
+
+        console.log('[AuthContext] Calculating earnings from reward_amount field');
+        console.log('[AuthContext] This month start date:', thisMonthStart.toISOString());
+
+        // Calculate lifetime earnings from reward_amount
+        lifetimeEarnings = conversions.reduce((sum: number, c: any) => {
+          const rewardAmount = Number(c.reward_amount) || 0;
+          console.log(`[AuthContext] Conversion ${c.id}: reward_amount = ${c.reward_amount}, parsed = ${rewardAmount}`);
+          return sum + rewardAmount;
+        }, 0);
+
+        // Calculate this month earnings
+        const thisMonthConversions = conversions.filter((c: any) => {
+          const conversionDate = new Date(c.created_at);
+          return conversionDate >= thisMonthStart;
+        });
+
+        console.log('[AuthContext] This month conversions count:', thisMonthConversions.length);
+
+        thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => {
+          const rewardAmount = Number(c.reward_amount) || 0;
+          console.log(`[AuthContext] This month conversion ${c.id}: reward_amount = ${c.reward_amount}, parsed = ${rewardAmount}`);
+          return sum + rewardAmount;
+        }, 0);
+
+        console.log('[AuthContext] Earnings calculation summary:', {
+          totalConversions: conversions.length,
+          thisMonthConversions: thisMonthConversions.length,
+          lifetimeEarnings,
+          thisMonthEarnings,
+        });
+      } else {
+        console.log('[AuthContext] No conversions found, earnings will be 0');
+      }
+
+      // Calculate friends joined and active shoppers from conversions
+      let totalReferred = 0;
+      let activeReferrers = 0;
+      let convertedThisMonth = 0;
+      let lifetimeConverted = 0;
 
       if (conversions) {
         const thisMonth = new Date();
@@ -314,20 +525,42 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         thisMonth.setHours(0, 0, 0, 0);
 
         const thisMonthConversions = conversions.filter((c: any) => new Date(c.created_at) >= thisMonth);
-        const lifetimeEarnings = conversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
-        const thisMonthEarnings = thisMonthConversions.reduce((sum: number, c: any) => sum + ((c.conversion_amount || 0)), 0);
+        
+        // Get unique referee IDs to count friends joined
+        const uniqueReferees = new Set(conversions.map((c: any) => c.referee_id));
+        totalReferred = uniqueReferees.size;
+        
+        // Active shoppers are those who have made orders (have conversions)
+        activeReferrers = conversions.length;
+        convertedThisMonth = thisMonthConversions.length;
+        lifetimeConverted = conversions.length;
 
-        setReferralStats({
-          totalReferred: conversions.length,
-          activeReferrers: conversions.length,
-          lifetimeEarnings,
-          thisMonthEarnings,
-          convertedThisMonth: thisMonthConversions.length,
-          lifetimeConverted: conversions.length,
-          referrals: [],
+        console.log('[AuthContext] Friends/Active shoppers calculation:', {
+          uniqueReferees: totalReferred,
+          totalConversions: activeReferrers,
+          thisMonthConversions: convertedThisMonth,
         });
-        console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
       }
+
+      setReferralStats({
+        totalReferred,
+        activeReferrers,
+        lifetimeEarnings,
+        thisMonthEarnings,
+        convertedThisMonth,
+        lifetimeConverted,
+        referrals: [],
+      });
+      
+      console.log('[AuthContext] ===== REFERRAL STATS LOADED =====');
+      console.log('[AuthContext] Final stats:', {
+        totalReferred,
+        activeReferrers,
+        lifetimeEarnings,
+        thisMonthEarnings,
+        convertedThisMonth,
+        lifetimeConverted,
+      });
     } catch (error) {
       console.error('[AuthContext] Error loading referral stats:', error);
     }

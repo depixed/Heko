@@ -143,11 +143,6 @@ export default function CartScreen() {
         options={{
           headerShown: true,
           title: 'Your Cart',
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ChevronLeft size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-          ),
         }}
       />
 
@@ -400,10 +395,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.secondary,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
   },
   scrollView: {
     flex: 1,
