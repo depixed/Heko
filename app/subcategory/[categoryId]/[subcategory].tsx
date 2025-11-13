@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Minus, Plus } from 'lucide-react-native';
 import { useMemo } from 'react';
@@ -12,6 +12,7 @@ export default function SubcategoryScreen() {
   const { categoryId, subcategory } = useLocalSearchParams();
   const { cart, addToCart, updateCartItem } = useAuth();
   const { categories, getProductsBySubcategory } = useProducts();
+  const { width: screenWidth } = useWindowDimensions();
   
   const decodedSubcategory = decodeURIComponent(subcategory as string);
   const category = categories.find(c => c.id === categoryId);
@@ -38,7 +39,13 @@ export default function SubcategoryScreen() {
         style={styles.productCard}
         onPress={() => router.push(`/product/${item.id}` as any)}
       >
-        <Image source={{ uri: item.image }} style={styles.productImage} />
+        <Image 
+          source={{ uri: item.image }} 
+          style={[styles.productImage, { 
+            height: Math.max(120, Math.min(200, ((screenWidth - 48) / 2) * 0.85))
+          }]} 
+          resizeMode="contain"
+        />
         <View style={styles.productInfo}>
           <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.productUnit}>{item.unit}</Text>
@@ -155,7 +162,7 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    height: 140,
+    backgroundColor: Colors.background.secondary,
   },
   productInfo: {
     padding: 12,

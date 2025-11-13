@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { useProducts } from '@/contexts/ProductContext';
+import TopNav from '@/components/TopNav';
 
 
 export default function CategoriesScreen() {
@@ -12,9 +13,7 @@ export default function CategoriesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.headerTitle}>Categories</Text>
-      </View>
+      <TopNav showBackButton={false} title="Categories" />
 
       <ScrollView 
         style={styles.content} 
@@ -47,20 +46,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.primary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    flex: 1,
   },
   content: {
     flex: 1,

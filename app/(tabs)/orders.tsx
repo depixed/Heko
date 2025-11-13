@@ -7,6 +7,7 @@ import Colors from '@/constants/colors';
 import { useOrders } from '@/contexts/OrderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/types/database';
+import TopNav from '@/components/TopNav';
 
 type OrderStatus = Database['public']['Tables']['orders']['Row']['status'];
 
@@ -67,9 +68,7 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.headerTitle}>My Orders</Text>
-      </View>
+      <TopNav showBackButton={false} title="My Orders" />
 
       <ScrollView 
         style={styles.content} 
@@ -201,17 +200,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.primary,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
   },
   content: {
     flex: 1,

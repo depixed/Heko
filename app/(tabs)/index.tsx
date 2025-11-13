@@ -1,52 +1,57 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Bell, Search, Mic, ShoppingCart, Minus, Plus } from 'lucide-react-native';
+import { Search, Mic, Minus, Plus } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '@/contexts/NotificationContext';
 import { useProducts } from '@/contexts/ProductContext';
-import { useBanners } from '@/contexts/BannerContext';
+import { useBanners } from '@/hooks/useBanners';
 import { useAddresses } from '@/contexts/AddressContext';
 import { APP_CONFIG } from '@/constants/config';
 import type { Product } from '@/types';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
+import TopNav from '@/components/TopNav';
+import BannerSection from '@/components/BannerSection';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { wallet, cartItemCount, cart, addToCart, updateCartItem } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { user, cart, addToCart, updateCartItem } = useAuth();
   const { categories, products, isLoadingCategories, isLoadingProducts, searchProducts } = useProducts();
-  const { banners, isLoading: isLoadingBanners } = useBanners();
   const { getDefaultAddress } = useAddresses();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  
+  const defaultAddress = getDefaultAddress();
+  
+  // Get user location from default address if available
+  const userLocation = defaultAddress?.lat && defaultAddress?.lng 
+    ? { lat: defaultAddress.lat, lng: defaultAddress.lng }
+    : undefined;
+  
+  // Get city from address or user
+  const userCity = defaultAddress?.city || undefined;
+  
+  // Use new banner hook with location and city
+  const { banners, loading: isLoadingBanners, error: bannersError } = useBanners({
+    userLocation,
+    city: userCity,
+  });
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  
-  const defaultAddress = getDefaultAddress();
 
   const handleAddToCart = (product: any) => {
     addToCart({ product, quantity: 1 });
   };
 
+  // Handle banner press - BannerCarousel will handle click tracking and deep links
   const handleBannerPress = (banner: any) => {
-    if (!banner.action) return;
-    
-    if (banner.action.startsWith('category:')) {
-      const categoryId = banner.action.split(':')[1];
-      router.push(`/category/${categoryId}` as any);
-    } else if (banner.action === 'referral') {
-      router.push('/referral' as any);
-    } else if (banner.action === 'wallet') {
-      router.push('/wallet' as any);
-    } else if (banner.action.startsWith('product:')) {
-      const productId = banner.action.split(':')[1];
-      router.push(`/product/${productId}` as any);
-    }
+    // BannerCarousel already handles deep link navigation and click tracking
+    // This is just for backward compatibility if needed
+    console.log('[HomeScreen] Banner pressed:', banner.id);
   };
 
   const handleSearch = async (query: string) => {
@@ -117,41 +122,13 @@ export default function HomeScreen() {
   return (
     <ResponsiveContainer>
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity style={styles.addressButton} onPress={() => router.push('/addresses' as any)}>
-            <MapPin size={20} color={Colors.brand.primary} />
-            <View style={styles.addressText}>
-              <Text style={styles.addressLabel}>Deliver to</Text>
-              <Text style={styles.addressValue}>{getAddressDisplayText()}</Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.walletBadge} onPress={() => router.push('/wallet' as any)}>
-            <Text style={styles.walletText}>₹{(wallet.virtualBalance + wallet.actualBalance).toFixed(2)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.bellButton}
-            onPress={() => router.push('/notifications' as any)}
-            testID="home-notifications-button"
-          >
-            <Bell size={24} color={Colors.text.primary} />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/cart' as any)}>
-            <ShoppingCart size={24} color={Colors.text.primary} />
-            {cartItemCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartItemCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+        <TopNav 
+          showBackButton={false} 
+          showAddress={true}
+          addressLabel="Deliver to"
+          addressValue={getAddressDisplayText()}
+          onAddressPress={() => router.push('/addresses' as any)}
+        />
 
       <ScrollView 
         style={styles.content} 
@@ -199,7 +176,13 @@ export default function HomeScreen() {
                       style={styles.productCard}
                       onPress={() => router.push(`/product/${product.id}` as any)}
                     >
-                      <Image source={{ uri: product.image }} style={styles.productImage} />
+                      <Image 
+                        source={{ uri: product.image }} 
+                        style={[styles.productImage, { 
+                          height: Math.max(120, Math.min(200, ((screenWidth - 16) * 0.48) * 0.85))
+                        }]} 
+                        resizeMode="contain"
+                      />
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                         <Text style={styles.productUnit}>{product.unit}</Text>
@@ -257,25 +240,15 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {!isLoadingBanners && banners.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannersContainer}>
-                {banners.map((banner) => (
-                  <TouchableOpacity
-                    key={banner.id}
-                    style={styles.banner}
-                    onPress={() => handleBannerPress(banner)}
-                  >
-                    <Image source={{ uri: banner.image }} style={styles.bannerImage} />
-                    <View style={styles.bannerOverlay}>
-                      <Text style={styles.bannerTitle}>{banner.title}</Text>
-                      {banner.subtitle && (
-                        <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
+            {/* Banner Section with silent error handling */}
+            <BannerSection
+              banners={banners}
+              loading={isLoadingBanners}
+              error={bannersError}
+              onBannerPress={handleBannerPress}
+              autoPlay={true}
+              autoPlayInterval={5000}
+            />
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Shop by Category</Text>
@@ -321,7 +294,13 @@ export default function HomeScreen() {
                       style={styles.productCard}
                       onPress={() => router.push(`/product/${product.id}` as any)}
                     >
-                      <Image source={{ uri: product.image }} style={styles.productImage} />
+                      <Image 
+                        source={{ uri: product.image }} 
+                        style={[styles.productImage, { 
+                          height: Math.max(120, Math.min(200, ((screenWidth - 16) * 0.48) * 0.85))
+                        }]} 
+                        resizeMode="contain"
+                      />
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                         <Text style={styles.productUnit}>{product.unit}</Text>
@@ -386,89 +365,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.primary,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  addressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  addressText: {
-    flex: 1,
-  },
-  addressLabel: {
-    fontSize: 12,
-    color: Colors.text.tertiary,
-  },
-  addressValue: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  walletBadge: {
-    backgroundColor: Colors.wallet.virtual,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  walletText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.inverse,
-  },
-  bellButton: {
-    position: 'relative' as const,
-  },
-  notificationBadge: {
-    position: 'absolute' as const,
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.brand.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  notificationBadgeText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: Colors.text.inverse,
-  },
-  cartButton: {
-    position: 'relative' as const,
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.status.error,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  cartBadgeText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: Colors.text.inverse,
-  },
   content: {
     flex: 1,
   },
@@ -494,39 +390,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: Colors.text.tertiary,
     fontWeight: '600' as const,
-  },
-  bannersContainer: {
-    paddingLeft: 16,
-    marginBottom: 24,
-  },
-  banner: {
-    width: 320,
-    height: 160,
-    borderRadius: 16,
-    marginRight: 16,
-    overflow: 'hidden',
-  },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  bannerOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  bannerTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.inverse,
-  },
-  bannerSubtitle: {
-    fontSize: 14,
-    color: Colors.text.inverse,
-    marginTop: 4,
   },
   section: {
     marginBottom: 24,
@@ -602,7 +465,7 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    height: 140,
+    backgroundColor: Colors.background.secondary,
   },
   productInfo: {
     padding: 12,

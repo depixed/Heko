@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Filter, Search } from 'lucide-react-native';
+import { Filter, Search } from 'lucide-react-native';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Notification } from '@/types';
 import colors from '@/constants/colors';
+import TopNav from '@/components/TopNav';
+import { handleDeepLink as handleDeepLinkRouter } from '@/utils/deepLinkRouter';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -77,23 +79,8 @@ export default function NotificationsScreen() {
 
   const handleDeepLink = (deeplink: string) => {
     console.log('[Notifications] Handling deeplink:', deeplink);
-    
-    const url = deeplink.replace('heko://', '');
-    const [path, queryString] = url.split('?');
-    
-    if (path.startsWith('order/')) {
-      const orderId = path.split('/')[1];
-      router.push(`/order/${orderId}${queryString ? `?${queryString}` : ''}`);
-    } else if (path === 'wallet') {
-      router.push('/wallet');
-    } else if (path === 'referral') {
-      router.push('/referral');
-    } else if (path.startsWith('category/')) {
-      const categoryId = path.split('/')[1];
-      router.push(`/category/${categoryId}`);
-    } else if (path === 'home') {
-      router.push('/');
-    }
+    // Use centralized deep link router
+    handleDeepLinkRouter(deeplink, router);
   };
 
   const handleLongPress = (notificationId: string) => {
@@ -173,47 +160,36 @@ export default function NotificationsScreen() {
         }}
       />
 
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.headerTop}>
+      <TopNav title="Notifications" />
+      <View style={styles.actionsBar}>
+        <TouchableOpacity
+          onPress={() => setShowFilterSheet(true)}
+          style={styles.iconButton}
+          testID="filter-button"
+        >
+          <Filter size={20} color={colors.text.primary} />
+        </TouchableOpacity>
+        {unreadCount > 0 && (
           <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            testID="back-button"
+            onPress={markAllAsRead}
+            style={styles.markAllButton}
+            testID="mark-all-read-button"
           >
-            <ChevronLeft size={24} color={colors.text.primary} />
+            <Text style={styles.markAllText}>Mark all read</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              onPress={() => setShowFilterSheet(true)}
-              style={styles.iconButton}
-              testID="filter-button"
-            >
-              <Filter size={20} color={colors.text.primary} />
-            </TouchableOpacity>
-            {unreadCount > 0 && (
-              <TouchableOpacity
-                onPress={markAllAsRead}
-                style={styles.markAllButton}
-                testID="mark-all-read-button"
-              >
-                <Text style={styles.markAllText}>Mark all read</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        )}
+      </View>
 
-        <View style={styles.searchContainer}>
-          <Search size={18} color={colors.text.tertiary} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search notifications"
-            placeholderTextColor={colors.text.tertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            testID="search-input"
-          />
-        </View>
+      <View style={styles.searchContainer}>
+        <Search size={18} color={colors.text.tertiary} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search notifications"
+          placeholderTextColor={colors.text.tertiary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          testID="search-input"
+        />
       </View>
 
       <ScrollView
@@ -514,35 +490,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  header: {
-    backgroundColor: colors.background.primary,
+  actionsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: colors.text.primary,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   iconButton: {
     width: 40,

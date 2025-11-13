@@ -10,14 +10,30 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProductProvider } from "@/contexts/ProductContext";
 import { OrderProvider } from "@/contexts/OrderContext";
 import { BannerProvider } from "@/contexts/BannerContext";
+import { useBannerPrefetch } from "@/hooks/useBannerPrefetch";
+import TopNav from "@/components/TopNav";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
+  // Prefetch banners on app launch
+  useBannerPrefetch();
+
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack
+      screenOptions={{
+        headerBackTitle: "Back",
+        header: ({ options, route }) => {
+          // Don't show header for splash and auth screens
+          if (route.name === 'splash' || route.name === 'auth' || route.name === '(tabs)') {
+            return null;
+          }
+          return <TopNav title={options.title} />;
+        },
+      }}
+    >
       <Stack.Screen name="splash" options={{ headerShown: false }} />
       <Stack.Screen name="auth" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -31,6 +47,8 @@ function RootLayoutNav() {
       <Stack.Screen name="address" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="category/[id]" options={{ title: "" }} />
+      <Stack.Screen name="subcategory/[categoryId]/[subcategory]" options={{ title: "" }} />
     </Stack>
   );
 }
