@@ -177,6 +177,12 @@ export class DeepLinkRouter {
         break;
 
       case 'order':
+      case 'orders':
+        this.navigateToOrder(action.value, action.params);
+        break;
+
+      case 'delivery':
+        // Navigate to order tracking/delivery screen
         this.navigateToOrder(action.value, action.params);
         break;
 
@@ -186,6 +192,11 @@ export class DeepLinkRouter {
 
       case 'referral':
         this.navigateToReferral();
+        break;
+
+      case 'returns':
+        // Navigate to return details
+        this.navigateToOrder(action.params?.order_id || action.value, action.params);
         break;
 
       case 'cart':

@@ -35,8 +35,8 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
 
     console.log('[OrderContext] Subscribing to order updates for user:', user.id);
 
-    const subscription = supabase
-      .channel('order_changes')
+    const channel = supabase
+      .channel('customer-orders-channel')
       .on(
         'postgres_changes',
         {
@@ -64,6 +64,7 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
             }
           }
           
+          // Refetch orders
           loadOrders();
         }
       )
@@ -71,7 +72,7 @@ export const [OrderProvider, useOrders] = createContextHook(() => {
 
     return () => {
       console.log('[OrderContext] Unsubscribing from order updates');
-      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [user?.id, loadOrders]);
 

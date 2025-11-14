@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { Notification, NotificationFilters } from '@/types';
 import { notificationService } from '@/lib/notification.service';
+import { notificationAnalyticsService } from '@/lib/notificationAnalytics.service';
 import { useAuth } from './AuthContext';
 
 
@@ -17,7 +18,8 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  useEffect(() => {    if (user) {
+  useEffect(() => {
+    if (user) {
       loadNotifications();
       setupRealtimeSubscription();
     } else {
@@ -44,18 +46,32 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
       console.log('[NotificationContext] Loading notifications for user:', user.id);
       const result = await notificationService.getNotifications(user.id, { limit: 100 });
       if (result.success && result.data) {
-        const appNotifications: Notification[] = result.data.map(notif => ({
-          id: notif.id,
-          type: notif.type.toUpperCase() as typeof notif.type extends string ? any : never,
-          title: notif.title,
-          body: notif.body,
-          createdAt: notif.created_at,
-          unread: notif.unread,
-          deeplink: notif.deeplink || '',
-          payload: (notif.payload as Record<string, any>) || {},
-        }));
-        setNotifications(appNotifications);
-        console.log('[NotificationContext] Notifications loaded:', appNotifications.length);
+        const appNotifications: Notification[] = result.data.map(notif => {
+          const data = (notif.data as Record<string, any>) || {};
+          return {
+            id: notif.id,
+            type: notif.type,
+            title: notif.title,
+            message: notif.message,
+            createdAt: notif.created_at,
+            read: notif.read,
+            deeplink: data.deep_link || '',
+            payload: data,
+            priority: notif.priority,
+            entity_id: notif.entity_id,
+            data: data,
+          };
+        });
+        // Deduplicate by ID and sort by creation date (newest first)
+        const uniqueNotifications = appNotifications.reduce((acc, notif) => {
+          if (!acc.find(n => n.id === notif.id)) {
+            acc.push(notif);
+          }
+          return acc;
+        }, [] as Notification[]);
+        uniqueNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setNotifications(uniqueNotifications);
+        console.log('[NotificationContext] Notifications loaded:', uniqueNotifications.length);
       }
     } catch (error) {
       console.error('[NotificationContext] Error loading notifications:', error);
@@ -72,24 +88,36 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
       user.id,
       (notification) => {
         console.log('[NotificationContext] New notification received:', notification);
+        const data = (notification.data as Record<string, any>) || {};
         const appNotification: Notification = {
           id: notification.id,
-          type: notification.type.toUpperCase() as any,
+          type: notification.type,
           title: notification.title,
-          body: notification.body,
+          message: notification.message,
           createdAt: notification.created_at,
-          unread: true,
-          deeplink: notification.deeplink || '',
-          payload: (notification.payload as Record<string, any>) || {},
+          read: notification.read,
+          deeplink: data.deep_link || '',
+          payload: data,
+          priority: notification.priority,
+          entity_id: notification.entity_id,
+          data: data,
         };
-        setNotifications(prev => [appNotification, ...prev]);
+        // Only add if notification doesn't already exist (deduplication)
+        setNotifications(prev => {
+          const exists = prev.some(n => n.id === appNotification.id);
+          if (exists) {
+            console.log('[NotificationContext] Notification already exists, skipping:', appNotification.id);
+            return prev;
+          }
+          return [appNotification, ...prev];
+        });
       }
     );
     subscriptionRef.current = unsubscribe;
   };
 
   const unreadCount = useMemo(() => {
-    return notifications.filter(n => n.unread).length;
+    return notifications.filter(n => !n.read).length;
   }, [notifications]);
 
   const markAsRead = useCallback(async (id: string) => {
@@ -97,15 +125,22 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     const result = await notificationService.markAsRead(id);
     if (result.success) {
       setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, unread: false } : n))
+        prev.map(n => (n.id === id ? { ...n, read: true } : n))
       );
+      // Track opened event
+      try {
+        await notificationAnalyticsService.trackOpened(id);
+      } catch (error) {
+        console.error('[NotificationContext] Error tracking opened analytics:', error);
+        // Continue execution - analytics is optional
+      }
     }
-  }, []);
+  }, [unreadCount]);
 
   const markAsUnread = useCallback((id: string) => {
     console.log('[NotificationContext] Marking notification as unread:', id);
     setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, unread: true } : n))
+      prev.map(n => (n.id === id ? { ...n, read: false } : n))
     );
   }, []);
 
@@ -115,7 +150,7 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     console.log('[NotificationContext] Marking all notifications as read');
     const result = await notificationService.markAllAsRead(user.id);
     if (result.success) {
-      setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     }
   }, [user]);
 
@@ -145,7 +180,7 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     let filtered = [...notifications];
 
     if (filters.unreadOnly) {
-      filtered = filtered.filter(n => n.unread);
+      filtered = filtered.filter(n => !n.read);
     }
 
     if (filters.types.length < 5) {

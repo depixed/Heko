@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { walletService } from './wallet.service';
+import { notificationHelper } from './notificationHelper.service';
 import type { Database } from '@/types/database';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
@@ -195,6 +196,15 @@ export const orderService = {
       }
 
       console.log('[ORDER] Order created successfully:', orderId);
+      
+      // Notify customer about order confirmation
+      await notificationHelper.notifyOrderStatusChange(
+        orderId,
+        'placed',
+        '',
+        { order_number: orderNumber }
+      );
+
       return await this.getOrderById(orderId);
     } catch (error) {
       console.error('[ORDER] Error creating order:', error);
@@ -279,6 +289,16 @@ export const orderService = {
     try {
       console.log('[ORDER] Updating order status:', orderId, status);
 
+      // Get old status before updating
+      const { data: oldOrder } = await supabase
+        .from('orders')
+        .select('status, delivery_otp')
+        .eq('id', orderId)
+        .single();
+
+      const oldStatus = (oldOrder as any)?.status || '';
+      const deliveryOTP = (oldOrder as any)?.delivery_otp;
+
       const updateData: OrderUpdate = {
         status,
         updated_at: new Date().toISOString(),
@@ -293,6 +313,25 @@ export const orderService = {
       if (error) {
         console.error('[ORDER] Error updating order status:', error);
         return { success: false, error: 'Failed to update order status' };
+      }
+
+      // Notify customer about status change
+      await notificationHelper.notifyOrderStatusChange(
+        orderId,
+        status,
+        oldStatus,
+        status === 'out_for_delivery' ? { otp: deliveryOTP } : undefined
+      );
+
+      // If status changed to out_for_delivery, send explicit OTP notification
+      if (status === 'out_for_delivery' && oldStatus !== 'out_for_delivery' && deliveryOTP) {
+        try {
+          console.log('[ORDER] Sending OTP notification for delivery:', orderId, deliveryOTP);
+          await notificationHelper.notifyOTPGenerated(orderId, deliveryOTP, 'delivery');
+        } catch (otpNotifError) {
+          console.error('[ORDER] Error sending OTP notification:', otpNotifError);
+          // Don't fail the status update if OTP notification fails
+        }
       }
 
       console.log('[ORDER] Order status updated successfully');

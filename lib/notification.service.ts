@@ -21,14 +21,15 @@ export const notificationService = {
       let query = supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .is('role', null); // Only customer notifications (role IS NULL)
 
       if (filters?.types && filters.types.length > 0) {
         query = query.in('type', filters.types);
       }
 
       if (filters?.unreadOnly) {
-        query = query.eq('unread', true);
+        query = query.eq('read', false); // read = false means unread
       }
 
       if (filters?.fromDate) {
@@ -68,7 +69,8 @@ export const notificationService = {
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('unread', true);
+        .is('role', null) // Only customer notifications
+        .eq('read', false); // read = false means unread
 
       if (error) {
         console.error('[NOTIFICATION] Error fetching unread count:', error);
@@ -88,7 +90,7 @@ export const notificationService = {
       console.log('[NOTIFICATION] Marking notification as read:', notificationId);
 
       const updateData: NotificationUpdate = {
-        unread: false,
+        read: true,
       };
 
       const { error } = await supabase
@@ -115,7 +117,7 @@ export const notificationService = {
       console.log('[NOTIFICATION] Marking all notifications as read for user:', userId);
 
       const updateData: NotificationUpdate = {
-        unread: false,
+        read: true,
       };
 
       const { error } = await supabase
@@ -123,7 +125,8 @@ export const notificationService = {
         // @ts-expect-error - Supabase type inference issue
         .update(updateData)
         .eq('user_id', userId)
-        .eq('unread', true);
+        .is('role', null) // Only customer notifications
+        .eq('read', false); // Only unread notifications
 
       if (error) {
         console.error('[NOTIFICATION] Error marking all notifications as read:', error);
@@ -197,8 +200,12 @@ export const notificationService = {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log('[NOTIFICATION] New notification received:', payload.new);
-          callback(payload.new as NotificationRow);
+          const notification = payload.new as NotificationRow;
+          // Only process customer notifications (role IS NULL)
+          if (notification.role === null) {
+            console.log('[NOTIFICATION] New notification received:', notification);
+            callback(notification);
+          }
         }
       )
       .subscribe();
