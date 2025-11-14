@@ -615,35 +615,193 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: 'orders' | 'wallet' | 'referrals' | 'promos' | 'system';
+          role: string | null;
+          type: string;
           title: string;
-          body: string;
-          deeplink: string;
-          payload: Json;
-          unread: boolean;
+          message: string;
+          priority: 'high' | 'medium' | 'low';
+          entity_id: string | null;
+          data: Json;
+          read: boolean;
+          channel: 'push' | 'sms' | 'in_app';
+          locale: 'en' | 'gu';
+          sent_at: string | null;
+          delivered_at: string | null;
+          opened_at: string | null;
+          clicked_at: string | null;
+          sms_provider_id: string | null;
+          push_token: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          type: 'orders' | 'wallet' | 'referrals' | 'promos' | 'system';
+          role?: string | null;
+          type: string;
           title: string;
-          body: string;
-          deeplink: string;
-          payload?: Json;
-          unread?: boolean;
+          message: string;
+          priority?: 'high' | 'medium' | 'low';
+          entity_id?: string | null;
+          data?: Json;
+          read?: boolean;
+          channel?: 'push' | 'sms' | 'in_app';
+          locale?: 'en' | 'gu';
+          sent_at?: string | null;
+          delivered_at?: string | null;
+          opened_at?: string | null;
+          clicked_at?: string | null;
+          sms_provider_id?: string | null;
+          push_token?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          type?: 'orders' | 'wallet' | 'referrals' | 'promos' | 'system';
+          role?: string | null;
+          type?: string;
           title?: string;
-          body?: string;
-          deeplink?: string;
-          payload?: Json;
-          unread?: boolean;
+          message?: string;
+          priority?: 'high' | 'medium' | 'low';
+          entity_id?: string | null;
+          data?: Json;
+          read?: boolean;
+          channel?: 'push' | 'sms' | 'in_app';
+          locale?: 'en' | 'gu';
+          sent_at?: string | null;
+          delivered_at?: string | null;
+          opened_at?: string | null;
+          clicked_at?: string | null;
+          sms_provider_id?: string | null;
+          push_token?: string | null;
           created_at?: string;
+        };
+      };
+      notification_templates: {
+        Row: {
+          id: string;
+          type: string;
+          locale: 'en' | 'gu';
+          title_template: string;
+          message_template: string;
+          priority: 'high' | 'medium' | 'low';
+          channels: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          type: string;
+          locale?: 'en' | 'gu';
+          title_template: string;
+          message_template: string;
+          priority?: 'high' | 'medium' | 'low';
+          channels?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          type?: string;
+          locale?: 'en' | 'gu';
+          title_template?: string;
+          message_template?: string;
+          priority?: 'high' | 'medium' | 'low';
+          channels?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_notification_preferences: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          push_enabled: boolean;
+          sms_enabled: boolean;
+          in_app_enabled: boolean;
+          locale: 'en' | 'gu';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          push_enabled?: boolean;
+          sms_enabled?: boolean;
+          in_app_enabled?: boolean;
+          locale?: 'en' | 'gu';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: string;
+          push_enabled?: boolean;
+          sms_enabled?: boolean;
+          in_app_enabled?: boolean;
+          locale?: 'en' | 'gu';
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      notification_analytics: {
+        Row: {
+          id: string;
+          notification_id: string;
+          event_type: 'sent' | 'delivered' | 'opened' | 'clicked' | 'failed';
+          channel: 'push' | 'sms' | 'in_app';
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          notification_id: string;
+          event_type: 'sent' | 'delivered' | 'opened' | 'clicked' | 'failed';
+          channel: 'push' | 'sms' | 'in_app';
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          notification_id?: string;
+          event_type?: 'sent' | 'delivered' | 'opened' | 'clicked' | 'failed';
+          channel?: 'push' | 'sms' | 'in_app';
+          metadata?: Json;
+          created_at?: string;
+        };
+      };
+      user_push_tokens: {
+        Row: {
+          id: string;
+          user_id: string;
+          expo_push_token: string;
+          device_id: string | null;
+          platform: 'ios' | 'android' | 'web';
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          expo_push_token: string;
+          device_id?: string | null;
+          platform: 'ios' | 'android' | 'web';
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          expo_push_token?: string;
+          device_id?: string | null;
+          platform?: 'ios' | 'android' | 'web';
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       banners: {

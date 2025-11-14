@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Home, Briefcase, MapPin, MoreVertical } from 'lucide-react-native';
 import { useAddresses } from '@/contexts/AddressContext';
+import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
 import type { Address } from '@/types';
 
@@ -21,9 +23,33 @@ export default function AddressesScreen() {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { addresses, isLoading, deleteAddress, setDefaultAddress } = useAddresses();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   
   const isSelectionMode = params.from === 'cart' || params.from === 'checkout';
+
+  // Ensure component is mounted before navigation (fixes web refresh issue)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Redirect to auth if not logged in (only after auth loading is complete and component is mounted)
+  useEffect(() => {
+    if (!isMounted || authLoading) return; // Wait for auth to finish loading
+    
+    if (!isAuthenticated) {
+      // On web, add a small delay to ensure router is ready
+      if (Platform.OS === 'web') {
+        const timer = setTimeout(() => {
+          router.replace('/auth');
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        router.replace('/auth');
+      }
+    }
+  }, [isAuthenticated, isMounted, authLoading, router]);
 
   const handleCall = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, '');
@@ -95,6 +121,20 @@ export default function AddressesScreen() {
     }
     return address.type.charAt(0).toUpperCase() + address.type.slice(1);
   };
+
+  // Show loading state while auth is loading
+  if (authLoading || !isMounted) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.brand.primary} />
+      </View>
+    );
+  }
+
+  // Don't render if not authenticated (redirect will happen)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (isLoading) {
     return (

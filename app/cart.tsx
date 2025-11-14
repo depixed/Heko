@@ -20,20 +20,31 @@ import type { Product } from '@/types';
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, updateCartItem, addToCart, isAuthenticated } = useAuth();
+  const { cart, updateCartItem, addToCart, isAuthenticated, isLoading } = useAuth();
   const { getDefaultAddress } = useAddresses();
   const { products } = useProducts();
 
   const handleCheckout = () => {
+    // Wait for auth to finish loading before checking
+    if (isLoading) {
+      return;
+    }
+    
     if (!isAuthenticated) {
-      Alert.alert(
-        'Login Required',
-        'Please login to continue with checkout',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Login', onPress: () => router.push('/auth') }
-        ]
-      );
+      // Directly redirect to auth page (better UX for web)
+      if (Platform.OS === 'web') {
+        router.replace('/auth');
+      } else {
+        // On mobile, show alert for better UX
+        Alert.alert(
+          'Login Required',
+          'Please login to continue with checkout',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Login', onPress: () => router.push('/auth') }
+          ]
+        );
+      }
       return;
     }
     router.push('/checkout' as any);
