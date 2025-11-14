@@ -121,13 +121,18 @@ export type NotificationType = 'ORDERS' | 'WALLET' | 'REFERRALS' | 'PROMOS' | 'S
 
 export interface Notification {
   id: string;
-  type: NotificationType;
+  type: string;
   title: string;
-  body: string;
+  message: string;
   createdAt: string;
-  unread: boolean;
+  read: boolean;
   deeplink: string;
   payload: Record<string, any>;
+  priority?: 'high' | 'medium' | 'low';
+  entity_id?: string | null;
+  data?: Record<string, any>;
+  channel?: 'push' | 'sms' | 'in_app';
+  locale?: 'en' | 'gu';
 }
 
 export interface NotificationFilters {

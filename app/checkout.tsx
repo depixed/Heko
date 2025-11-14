@@ -24,10 +24,11 @@ type PaymentMethod = 'cash' | 'upi';
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, wallet, clearCart, user } = useAuth();
+  const { cart, wallet, clearCart, user, isAuthenticated, isLoading } = useAuth();
   const { getDefaultAddress } = useAddresses();
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderPlacedSuccessfully, setOrderPlacedSuccessfully] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
   const [actualWalletApplied, setActualWalletApplied] = useState(false);
@@ -37,6 +38,28 @@ export default function CheckoutScreen() {
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [contactlessDelivery, setContactlessDelivery] = useState(false);
   const [promoExpanded, setPromoExpanded] = useState(false);
+
+  // Ensure component is mounted before navigation (fixes web refresh issue)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Redirect to auth if not logged in (only after auth loading is complete and component is mounted)
+  useEffect(() => {
+    if (!isMounted || isLoading) return; // Wait for auth to finish loading
+    
+    if (!isAuthenticated) {
+      // On web, add a small delay to ensure router is ready
+      if (Platform.OS === 'web') {
+        const timer = setTimeout(() => {
+          router.replace('/auth');
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        router.replace('/auth');
+      }
+    }
+  }, [isAuthenticated, isMounted, isLoading, router]);
 
   const defaultAddress = getDefaultAddress();
 
@@ -172,6 +195,16 @@ export default function CheckoutScreen() {
       router.replace('/cart' as any);
     }
   }, [cart.length, orderPlacedSuccessfully]);
+
+  // Show loading state while auth is loading
+  if (isLoading || !isMounted) {
+    return null;
+  }
+
+  // Don't render if not authenticated (redirect will happen)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (cart.length === 0) return null;
 

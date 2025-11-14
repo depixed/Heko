@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { cartService, type CartItemWithProduct } from '@/lib/cart.service';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Product } from '@/types';
 
@@ -68,6 +69,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshCart();
   }, [refreshCart]);
+
+  // Real-time subscription for cart items
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('cart-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cart_items',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          console.log('[CartContext] Cart change detected, refreshing cart...');
+          refreshCart();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('[CartContext] Unsubscribing from cart updates');
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refreshCart]);
 
   const addToCart = useCallback(async (item: CartItem) => {
     if (!user?.id) return;
