@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAddresses } from '@/contexts/AddressContext';
+import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
 import type { Address } from '@/types';
 
@@ -20,6 +22,8 @@ export default function AddAddressScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addAddress } = useAddresses();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,6 +40,28 @@ export default function AddAddressScreen() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Ensure component is mounted before navigation (fixes web refresh issue)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Redirect to auth if not logged in (only after auth loading is complete and component is mounted)
+  useEffect(() => {
+    if (!isMounted || authLoading) return; // Wait for auth to finish loading
+    
+    if (!isAuthenticated) {
+      // On web, add a small delay to ensure router is ready
+      if (Platform.OS === 'web') {
+        const timer = setTimeout(() => {
+          router.replace('/auth');
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        router.replace('/auth');
+      }
+    }
+  }, [isAuthenticated, isMounted, authLoading, router]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -122,6 +148,20 @@ export default function AddAddressScreen() {
       });
     }
   };
+
+  // Show loading state while auth is loading
+  if (authLoading || !isMounted) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.brand.primary} />
+      </View>
+    );
+  }
+
+  // Don't render if not authenticated (redirect will happen)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <KeyboardAvoidingView
@@ -301,6 +341,12 @@ export default function AddAddressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background.secondary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     backgroundColor: Colors.background.secondary,
   },
   scrollView: {

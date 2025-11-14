@@ -17,6 +17,7 @@ import { Notification } from '@/types';
 import colors from '@/constants/colors';
 import TopNav from '@/components/TopNav';
 import { handleDeepLink as handleDeepLinkRouter } from '@/utils/deepLinkRouter';
+import { notificationAnalyticsService } from '@/lib/notificationAnalytics.service';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -71,12 +72,17 @@ export default function NotificationsScreen() {
 
   const handleNotificationPress = (notification: Notification) => {
     console.log('[Notifications] Notification pressed:', notification.id);
-    if (notification.unread) {
+    if (!notification.read) {
       markAsRead(notification.id);
     }
+    // Track click analytics (fire and forget - don't block UI)
+    notificationAnalyticsService.trackClicked(notification.id, notification.deeplink).catch((error) => {
+      console.error('[Notifications] Error tracking click analytics:', error);
+      // Continue execution - analytics is optional
+    });
     handleDeepLink(notification.deeplink);
   };
-
+  
   const handleDeepLink = (deeplink: string) => {
     console.log('[Notifications] Handling deeplink:', deeplink);
     // Use centralized deep link router
@@ -238,7 +244,7 @@ export default function NotificationsScreen() {
         >
           <View style={styles.actionMenu}>
             {selectedNotification &&
-              notifications.find(n => n.id === selectedNotification)?.unread ? (
+              !notifications.find(n => n.id === selectedNotification)?.read ? (
               <TouchableOpacity
                 style={styles.actionMenuItem}
                 onPress={handleMarkAsRead}
@@ -296,7 +302,7 @@ const NotificationRow = React.memo<NotificationRowProps>(function NotificationRo
         testID={`notification-${notification.id}`}
       >
         <View style={styles.notificationContent}>
-          {notification.unread && <View style={styles.unreadDot} />}
+          {!notification.read && <View style={styles.unreadDot} />}
           <View style={styles.notificationIcon}>
             <Text style={styles.notificationIconText}>{getIcon(notification.type)}</Text>
           </View>
@@ -304,14 +310,14 @@ const NotificationRow = React.memo<NotificationRowProps>(function NotificationRo
             <Text
               style={[
                 styles.notificationTitle,
-                notification.unread && styles.notificationTitleUnread,
+                !notification.read && styles.notificationTitleUnread,
               ]}
               numberOfLines={1}
             >
               {notification.title}
             </Text>
             <Text style={styles.notificationText} numberOfLines={2}>
-              {notification.body}
+              {notification.message}
             </Text>
           </View>
           <Text style={styles.notificationTime}>{formatTime(notification.createdAt)}</Text>

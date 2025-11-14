@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Database } from '@/types/database';
+import { notificationHelper } from './notificationHelper.service';
 
 type WalletTransactionRow = Database['public']['Tables']['wallet_transactions']['Row'];
 type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
@@ -257,6 +258,19 @@ export const walletService = {
         return { success: false, error: 'Failed to create conversion record' };
       }
 
+      // Notify user about wallet conversion
+      try {
+        await notificationHelper.notifyWalletUpdate(referrerId, {
+          type: 'credit',
+          amount: amountInRupees,
+          kind: 'wallet_conversion',
+          order_id: orderId,
+        });
+      } catch (notifError) {
+        console.error('[WALLET] Error sending conversion notification:', notifError);
+        // Don't fail the conversion if notification fails
+      }
+
       console.log('[WALLET] Referral conversion processed successfully');
       return { success: true };
     } catch (error) {
@@ -376,6 +390,19 @@ export const walletService = {
       if (txnError) {
         console.error('[WALLET] Error creating transaction:', txnError);
         return { success: false, error: 'Failed to create transaction' };
+      }
+
+      // Notify user about refund
+      try {
+        await notificationHelper.notifyWalletUpdate(userId, {
+          type: 'credit',
+          amount: amountInRupees,
+          kind: 'refund',
+          order_id: orderId,
+        });
+      } catch (notifError) {
+        console.error('[WALLET] Error sending refund notification:', notifError);
+        // Don't fail the refund if notification fails
       }
 
       console.log('[WALLET] Refund added successfully');

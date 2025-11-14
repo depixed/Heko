@@ -306,8 +306,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       )
       .subscribe();
 
-    const walletSubscription = supabase
-      .channel(`wallet-${userId}`)
+    const walletChannel = supabase
+      .channel('wallet-channel')
       .on(
         'postgres_changes',
         {
@@ -394,9 +394,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       .subscribe();
 
     return () => {
-      profileSubscription.unsubscribe();
-      walletSubscription.unsubscribe();
-      referralSubscription.unsubscribe();
+      console.log('[AuthContext] Cleaning up real-time subscriptions');
+      supabase.removeChannel(profileSubscription);
+      supabase.removeChannel(walletChannel);
+      supabase.removeChannel(referralSubscription);
     };
   };
 

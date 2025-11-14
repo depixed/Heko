@@ -1,6 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { catalogService, ProductWithRelations } from '@/lib/catalog.service';
+import { supabase } from '@/lib/supabase';
 import type { Product, Category } from '@/types';
 
 export const [ProductProvider, useProducts] = createContextHook(() => {
@@ -142,6 +143,30 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
   const refreshCategories = useCallback(async () => {
     await loadCategories();
   }, []);
+
+  // Real-time subscription for product updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('products-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'products',
+        },
+        () => {
+          console.log('[ProductContext] Product update detected, refreshing products...');
+          refreshProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('[ProductContext] Unsubscribing from product updates');
+      supabase.removeChannel(channel);
+    };
+  }, [refreshProducts]);
 
   return useMemo(() => ({
     categories,

@@ -14,6 +14,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAddresses } from '@/contexts/AddressContext';
+import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
 import type { Address } from '@/types';
 
@@ -22,6 +23,8 @@ export default function EditAddressScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getAddressById, updateAddress } = useAddresses();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [formData, setFormData] = useState({
@@ -39,6 +42,28 @@ export default function EditAddressScreen() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Ensure component is mounted before navigation (fixes web refresh issue)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Redirect to auth if not logged in (only after auth loading is complete and component is mounted)
+  useEffect(() => {
+    if (!isMounted || authLoading) return; // Wait for auth to finish loading
+    
+    if (!isAuthenticated) {
+      // On web, add a small delay to ensure router is ready
+      if (Platform.OS === 'web') {
+        const timer = setTimeout(() => {
+          router.replace('/auth');
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        router.replace('/auth');
+      }
+    }
+  }, [isAuthenticated, isMounted, authLoading, router]);
 
   useEffect(() => {
     const address = getAddressById(id);
@@ -145,6 +170,20 @@ export default function EditAddressScreen() {
       });
     }
   };
+
+  // Show loading state while auth is loading
+  if (authLoading || !isMounted) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.brand.primary} />
+      </View>
+    );
+  }
+
+  // Don't render if not authenticated (redirect will happen)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (isLoading) {
     return (
