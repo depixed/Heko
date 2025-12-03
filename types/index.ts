@@ -143,11 +143,17 @@ export interface NotificationFilters {
   customTo?: string;
 }
 
+export interface Subcategory {
+  id: string;
+  name: string;
+  image: string;
+}
+
 export interface Category {
   id: string;
   name: string;
   image: string;
-  subcategories: string[];
+  subcategories: Subcategory[];
 }
 
 export interface Banner {
