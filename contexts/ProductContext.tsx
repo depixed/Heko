@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { catalogService, ProductWithRelations } from '@/lib/catalog.service';
 import { supabase } from '@/lib/supabase';
-import type { Product, Category } from '@/types';
+import type { Product, Category, Subcategory } from '@/types';
 
 export const [ProductProvider, useProducts] = createContextHook(() => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -24,15 +24,19 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
         
         for (const cat of result.data) {
           const subsResult = await catalogService.getSubcategories(cat.id);
-          const subcategoryNames = subsResult.success && subsResult.data 
-            ? subsResult.data.map(sub => sub.name)
+          const subcategories: Subcategory[] = subsResult.success && subsResult.data 
+            ? subsResult.data.map(sub => ({
+                id: sub.id,
+                name: sub.name,
+                image: sub.image || 'https://via.placeholder.com/150',
+              }))
             : [];
           
           appCategories.push({
             id: cat.id,
             name: cat.name,
             image: cat.image || 'https://via.placeholder.com/150',
-            subcategories: subcategoryNames,
+            subcategories,
           });
         }
         

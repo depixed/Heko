@@ -197,15 +197,11 @@ export const orderService = {
 
       console.log('[ORDER] Order created successfully:', orderId);
       
-      // Notify customer about order confirmation
-      await notificationHelper.notifyOrderStatusChange(
-        orderId,
-        'placed',
-        '',
-        { order_number: orderNumber }
-      );
+      // Get the complete order data
+      // Note: Notification is handled by database trigger/webhook when order is inserted
+      const orderResult = await this.getOrderById(orderId);
 
-      return await this.getOrderById(orderId);
+      return orderResult;
     } catch (error) {
       console.error('[ORDER] Error creating order:', error);
       return { success: false, error: 'Failed to create order' };
