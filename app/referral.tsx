@@ -34,7 +34,16 @@ export default function ReferralScreen() {
   const referralLink = `https://heko.app/r/${referralCode}`;
 
   const generateReferralCode = async () => {
-    if (referralCode) return;
+    // Check if user is logged in
+    if (!user) {
+      router.push('/auth/login' as any);
+      return;
+    }
+
+    // If user already has a referral code, they're already on the referral page
+    if (referralCode) {
+      return;
+    }
 
     setIsGenerating(true);
     try {
