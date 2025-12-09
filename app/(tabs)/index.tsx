@@ -75,7 +75,7 @@ export default function HomeScreen() {
       // Search categories and subcategories
       const categoryResults = categories.filter(cat => 
         cat.name.toLowerCase().includes(query.toLowerCase()) ||
-        cat.subcategories.some(sub => sub.toLowerCase().includes(query.toLowerCase()))
+        cat.subcategories.some(sub => sub.name.toLowerCase().includes(query.toLowerCase()))
       );
       
       // Get products from matching categories
@@ -251,19 +251,21 @@ export default function HomeScreen() {
             />
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Shop by Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-                {categories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={styles.categoryCard}
-                    onPress={() => router.push(`/category/${category.id}` as any)}
-                  >
-                    <Image source={{ uri: category.image }} style={styles.categoryImage} />
-                    <Text style={styles.categoryName}>{category.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <Text style={styles.sectionTitle}>Shop by Subcategory</Text>
+              <View style={styles.subcategoriesGrid}>
+                {categories.flatMap((category) =>
+                  category.subcategories.map((subcategory) => (
+                    <TouchableOpacity
+                      key={subcategory.id}
+                      style={styles.subcategoryCard}
+                      onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
+                    >
+                      <Image source={{ uri: subcategory.image }} style={styles.subcategoryImage} />
+                      <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
             </View>
 
             {APP_CONFIG.REFERRAL.ENABLED && (
@@ -401,25 +403,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  categoriesScroll: {
-    paddingLeft: 16,
+  subcategoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
   },
-  categoryCard: {
-    width: 100,
-    marginRight: 12,
+  subcategoryCard: {
+    width: '9%',
+    marginBottom: 12,
     alignItems: 'center',
+    marginRight: '1%',
   },
-  categoryImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
-    marginBottom: 8,
+  subcategoryImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginBottom: 6,
+    backgroundColor: Colors.background.secondary,
   },
-  categoryName: {
-    fontSize: 12,
+  subcategoryName: {
+    fontSize: 10,
     fontWeight: '600' as const,
     color: Colors.text.primary,
     textAlign: 'center',
+    lineHeight: 12,
+    paddingHorizontal: 2,
   },
   referralBanner: {
     marginHorizontal: 16,
