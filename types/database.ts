@@ -137,6 +137,7 @@ export interface Database {
           id: string;
           category_id: string;
           name: string;
+          image: string | null;
           active: boolean;
           created_at: string;
           updated_at: string;
@@ -145,6 +146,7 @@ export interface Database {
           id?: string;
           category_id: string;
           name: string;
+          image?: string | null;
           active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -153,6 +155,7 @@ export interface Database {
           id?: string;
           category_id?: string;
           name?: string;
+          image?: string | null;
           active?: boolean;
           created_at?: string;
           updated_at?: string;

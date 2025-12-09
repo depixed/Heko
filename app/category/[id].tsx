@@ -50,14 +50,15 @@ export default function CategoryDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Browse by Subcategory</Text>
           <View style={styles.subcategoriesGrid}>
-            {category.subcategories.map((subcategory, index) => (
+            {category.subcategories.map((subcategory) => (
               <TouchableOpacity
-                key={index}
+                key={subcategory.id}
                 style={styles.subcategoryCard}
-                onPress={() => router.push(`/subcategory/${id}/${encodeURIComponent(subcategory)}` as any)}
+                onPress={() => router.push(`/subcategory/${id}/${encodeURIComponent(subcategory.name)}` as any)}
               >
+                <Image source={{ uri: subcategory.image }} style={styles.subcategoryImage} />
                 <View style={styles.subcategoryContent}>
-                  <Text style={styles.subcategoryName}>{subcategory}</Text>
+                  <Text style={styles.subcategoryName}>{subcategory.name}</Text>
                   <ChevronRight size={20} color={Colors.text.tertiary} />
                 </View>
               </TouchableOpacity>
@@ -122,8 +123,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border.light,
     overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subcategoryImage: {
+    width: 80,
+    height: 80,
+    backgroundColor: Colors.background.tertiary,
   },
   subcategoryContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
