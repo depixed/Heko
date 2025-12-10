@@ -34,8 +34,71 @@ export class DeepLinkRouter {
 
     console.log('[DeepLinkRouter] Parsing deeplink:', deeplink);
 
-    // Handle external URLs
+    // Handle external URLs - but check if it's an internal route first
     if (deeplink.startsWith('http://') || deeplink.startsWith('https://')) {
+      try {
+        const url = new URL(deeplink);
+        const path = url.pathname;
+        
+        // List of internal routes that should be handled as app navigation
+        const internalRoutes = [
+          '/referral',
+          '/category',
+          '/product',
+          '/order',
+          '/wallet',
+          '/cart',
+          '/checkout',
+          '/addresses',
+          '/notifications',
+          '/home',
+          '/',
+        ];
+        
+        // Check if the path matches an internal route
+        const isInternalRoute = internalRoutes.some(route => 
+          path === route || path.startsWith(`${route}/`)
+        );
+        
+        if (isInternalRoute) {
+          // Extract the path and handle as internal navigation
+          console.log('[DeepLinkRouter] Detected internal route in HTTP URL:', path);
+          // Remove leading slash and parse as internal route
+          const internalPath = path.startsWith('/') ? path.substring(1) : path;
+          
+          // Handle referral route specifically
+          if (internalPath === 'referral') {
+            return {
+              type: 'referral',
+              value: '',
+            };
+          }
+          
+          // Handle other routes by extracting type and value
+          const pathParts = internalPath.split('/');
+          if (pathParts.length >= 2) {
+            return {
+              type: pathParts[0].toLowerCase(),
+              value: pathParts[1],
+              params: this.parseQueryString(url.search.substring(1)),
+            };
+          }
+          
+          // Handle simple routes like /referral, /wallet, etc.
+          if (pathParts.length === 1 && pathParts[0]) {
+            return {
+              type: pathParts[0].toLowerCase(),
+              value: '',
+              params: this.parseQueryString(url.search.substring(1)),
+            };
+          }
+        }
+      } catch (error) {
+        // If URL parsing fails, treat as external URL
+        console.warn('[DeepLinkRouter] Failed to parse URL, treating as external:', error);
+      }
+      
+      // If not an internal route, treat as external URL
       return {
         type: 'url',
         value: deeplink,
