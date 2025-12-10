@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Mic, Minus, Plus } from 'lucide-react-native';
+import { Search, Mic, Minus, Plus, ChevronRight } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/contexts/ProductContext';
@@ -45,6 +45,83 @@ export default function HomeScreen() {
 
   const handleAddToCart = (product: any) => {
     addToCart({ product, quantity: 1 });
+  };
+
+  // Get products by category
+  const getProductsByCategory = (categoryName: string) => {
+    return products.filter(p => p.category === categoryName);
+  };
+
+  // Render product card for horizontal carousel
+  const renderProductCard = (product: Product, cardWidth: number) => {
+    const cartItem = cart.find((item) => item.product.id === product.id);
+    const qty = cartItem?.quantity || 0;
+
+    return (
+      <TouchableOpacity
+        key={product.id}
+        style={[styles.horizontalProductCard, { width: cardWidth }]}
+        onPress={() => router.push(`/product/${product.id}` as any)}
+      >
+        <Image 
+          source={{ uri: product.image }} 
+          style={styles.horizontalProductImage}
+          resizeMode="contain"
+        />
+        <View style={styles.horizontalProductInfo}>
+          <View style={styles.horizontalProductTop}>
+            <Text style={styles.horizontalProductName} numberOfLines={2}>{product.name}</Text>
+            <Text style={styles.horizontalProductUnit}>{product.unit}</Text>
+            <View style={styles.horizontalProductPricing}>
+              <View style={styles.horizontalPriceRow}>
+                <Text style={styles.horizontalProductPrice}>₹{product.price.toFixed(2)}</Text>
+                {product.discount > 0 && (
+                  <Text style={styles.horizontalProductMrp}>₹{product.mrp.toFixed(2)}</Text>
+                )}
+              </View>
+              {product.discount > 0 && (
+                <Text style={styles.horizontalProductDiscount}>{product.discount}% OFF</Text>
+              )}
+            </View>
+          </View>
+          <View style={styles.horizontalProductBottom}>
+            {qty === 0 ? (
+              <TouchableOpacity
+                style={styles.horizontalAddButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleAddToCart(product);
+                }}
+              >
+                <Text style={styles.horizontalAddButtonText}>Add</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.horizontalQtyStepper}>
+                <TouchableOpacity
+                  style={styles.horizontalQtyButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    updateCartItem(product.id, qty - 1);
+                  }}
+                >
+                  <Minus size={12} color={Colors.text.inverse} />
+                </TouchableOpacity>
+                <Text style={styles.horizontalQtyText}>{qty}</Text>
+                <TouchableOpacity
+                  style={styles.horizontalQtyButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    updateCartItem(product.id, qty + 1);
+                  }}
+                >
+                  <Plus size={12} color={Colors.text.inverse} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   // Handle banner press - BannerCarousel will handle click tracking and deep links
@@ -320,77 +397,36 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Recommended for You</Text>
-              <View style={styles.productsGrid}>
-                {products.slice(0, 10).map((product) => {
-                  const cartItem = cart.find((item) => item.product.id === product.id);
-                  const qty = cartItem?.quantity || 0;
+            {/* Category-based product sections */}
+            {categories.map((category) => {
+              const categoryProducts = getProductsByCategory(category.name);
+              if (categoryProducts.length === 0) return null;
 
-                  return (
+              const cardWidth = 160;
+              
+              return (
+                <View key={category.id} style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>{category.name}</Text>
                     <TouchableOpacity
-                      key={product.id}
-                      style={styles.productCard}
-                      onPress={() => router.push(`/product/${product.id}` as any)}
+                      style={styles.seeAllButton}
+                      onPress={() => router.push(`/category/${category.id}` as any)}
                     >
-                      <Image 
-                        source={{ uri: product.image }} 
-                        style={[styles.productImage, { 
-                          height: Math.max(120, Math.min(200, ((screenWidth - 16) * 0.48) * 0.85))
-                        }]} 
-                        resizeMode="contain"
-                      />
-                      <View style={styles.productInfo}>
-                        <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                        <Text style={styles.productUnit}>{product.unit}</Text>
-                        <View style={styles.productPricing}>
-                          <Text style={styles.productPrice}>₹{product.price.toFixed(2)}</Text>
-                          {product.discount > 0 && (
-                            <>
-                              <Text style={styles.productMrp}>₹{product.mrp.toFixed(2)}</Text>
-                              <Text style={styles.productDiscount}>{product.discount}% OFF</Text>
-                            </>
-                          )}
-                        </View>
-                        {qty === 0 ? (
-                          <TouchableOpacity
-                            style={styles.addButton}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleAddToCart(product);
-                            }}
-                          >
-                            <Text style={styles.addButtonText}>Add to cart</Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <View style={styles.qtyStepper}>
-                            <TouchableOpacity
-                              style={styles.qtyButton}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                updateCartItem(product.id, qty - 1);
-                              }}
-                            >
-                              <Minus size={14} color={Colors.text.inverse} />
-                            </TouchableOpacity>
-                            <Text style={styles.qtyText}>{qty}</Text>
-                            <TouchableOpacity
-                              style={styles.qtyButton}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                updateCartItem(product.id, qty + 1);
-                              }}
-                            >
-                              <Plus size={14} color={Colors.text.inverse} />
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
+                      <Text style={styles.seeAllText}>See All</Text>
+                      <ChevronRight size={16} color={Colors.brand.primary} />
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.horizontalScroll}
+                    contentContainerStyle={styles.horizontalScrollContent}
+                  >
+                    {categoryProducts.map((product) => renderProductCard(product, cardWidth))}
+                  </ScrollView>
+                </View>
+              );
+            })}
           </>
         )}
       </ScrollView>
@@ -433,12 +469,35 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.text.primary,
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    flex: 1,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.brand.primary,
+  },
+  horizontalScroll: {
+    paddingLeft: 16,
+  },
+  horizontalScrollContent: {
+    paddingRight: 16,
+    gap: 12,
   },
   categoriesGrid: {
     flexDirection: 'row',
@@ -637,5 +696,105 @@ const styles = StyleSheet.create({
     color: Colors.text.inverse,
     flex: 1,
     textAlign: 'center',
+  },
+  horizontalProductCard: {
+    marginRight: 12,
+    backgroundColor: Colors.background.primary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  horizontalProductImage: {
+    width: '100%',
+    height: 140,
+    backgroundColor: Colors.background.secondary,
+  },
+  horizontalProductInfo: {
+    padding: 10,
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    minHeight: 120,
+  },
+  horizontalProductTop: {
+    flex: 1,
+  },
+  horizontalProductBottom: {
+    marginTop: 'auto',
+  },
+  horizontalProductName: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 4,
+    minHeight: 32,
+  },
+  horizontalProductUnit: {
+    fontSize: 11,
+    color: Colors.text.tertiary,
+    marginBottom: 6,
+  },
+  horizontalProductPricing: {
+    marginBottom: 8,
+  },
+  horizontalPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  horizontalProductPrice: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+  },
+  horizontalProductMrp: {
+    fontSize: 11,
+    color: Colors.text.tertiary,
+    textDecorationLine: 'line-through',
+  },
+  horizontalProductDiscount: {
+    fontSize: 9,
+    fontWeight: '600' as const,
+    color: Colors.status.success,
+  },
+  horizontalAddButton: {
+    borderWidth: 1,
+    borderColor: Colors.brand.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '100%',
+  },
+  horizontalAddButtonText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.brand.primary,
+  },
+  horizontalQtyStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.brand.primary,
+    borderRadius: 16,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  horizontalQtyButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  horizontalQtyText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.text.inverse,
+    paddingHorizontal: 8,
   },
 });
