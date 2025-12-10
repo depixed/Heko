@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroContainer: {
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 40,
@@ -441,6 +441,7 @@ const styles = StyleSheet.create({
   heroImage: {
     width: 280,
     height: 280,
+    backgroundColor: Colors.background.primary,
   },
   imageCarouselContainer: {
     width: '100%',
@@ -455,6 +456,7 @@ const styles = StyleSheet.create({
   imageSlide: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.background.primary,
   },
   navArrow: {
     position: 'absolute',
@@ -659,6 +661,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 8,
     marginBottom: 8,
+    backgroundColor: Colors.background.primary,
   },
   similarName: {
     fontSize: 13,
