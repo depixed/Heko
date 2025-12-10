@@ -3,6 +3,7 @@ const BURNT_ORANGE = '#8A4B36';
 const VIVID_AMBER = '#DD8E4D';
 const RICH_AMBER = '#EAB975';
 const MUTED_SAFFRON = '#EDC98E';
+const ACCENT_YELLOW = '#FFF8A6';
 const IVORY = '#F2E6CD';
 const IVORY_LIGHT = '#EEEOC2';
 const IVORY_LIGHTER = '#F4E9D2';
@@ -13,11 +14,13 @@ const BLACK = '#000000';
 
 export default {
   brand: {
-    primary: VIVID_PUMPKIN,
+    primary: BLACK,
     primaryDark: BURNT_ORANGE,
     primaryLight: VIVID_AMBER,
     accent: RICH_AMBER,
     accentLight: MUTED_SAFFRON,
+    accentYellow: ACCENT_YELLOW,
+    pumpkin: VIVID_PUMPKIN, // Keep pumpkin color available if needed for backgrounds
   },
   
   text: {
@@ -54,7 +57,7 @@ export default {
   },
   
   tab: {
-    active: VIVID_PUMPKIN,
+    active: BLACK,
     inactive: '#999999',
   },
 };

@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: Colors.brand.primary,
+    backgroundColor: Colors.brand.accentYellow,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     }),
   },
   brandText: {
-    color: Colors.text.inverse,
+    color: Colors.text.primary,
     fontSize: 18,
     fontWeight: '700' as const,
     letterSpacing: 0.5,

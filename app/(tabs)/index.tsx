@@ -250,20 +250,57 @@ export default function HomeScreen() {
               autoPlayInterval={5000}
             />
 
+            {/* Shop by Category Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Shop by Category</Text>
+              <View style={styles.categoriesGrid}>
+                {categories.map((category) => {
+                  const cardWidth = (screenWidth - 48) / 3; // 3 columns with padding
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[styles.categoryCard, { width: cardWidth }]}
+                      onPress={() => router.push(`/category/${category.id}` as any)}
+                    >
+                      <View style={styles.categoryImageContainer}>
+                        <Image 
+                          source={{ uri: category.image }} 
+                          style={styles.categoryImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <Text style={styles.categoryName} numberOfLines={2}>{category.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Shop by Subcategory Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Shop by Subcategory</Text>
               <View style={styles.subcategoriesGrid}>
                 {categories.flatMap((category) =>
-                  category.subcategories.map((subcategory) => (
-                    <TouchableOpacity
-                      key={subcategory.id}
-                      style={styles.subcategoryCard}
-                      onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
-                    >
-                      <Image source={{ uri: subcategory.image }} style={styles.subcategoryImage} />
-                      <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
-                    </TouchableOpacity>
-                  ))
+                  category.subcategories.map((subcategory) => {
+                    const numColumns = screenWidth > 600 ? 5 : screenWidth > 400 ? 4 : 3;
+                    const cardWidth = (screenWidth - 48 - (numColumns - 1) * 8) / numColumns;
+                    return (
+                      <TouchableOpacity
+                        key={subcategory.id}
+                        style={[styles.subcategoryCard, { width: cardWidth }]}
+                        onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
+                      >
+                        <View style={styles.subcategoryImageContainer}>
+                          <Image 
+                            source={{ uri: subcategory.image }} 
+                            style={styles.subcategoryImage}
+                            resizeMode="contain"
+                          />
+                        </View>
+                        <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })
                 )}
               </View>
             </View>
@@ -377,7 +414,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.brand.accentYellow,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -403,23 +440,65 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  categoryCard: {
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  categoryImageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: Colors.background.primary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    marginBottom: 8,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryName: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: 4,
+  },
   subcategoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 12,
+    gap: 8,
   },
   subcategoryCard: {
-    width: '9%',
     marginBottom: 12,
     alignItems: 'center',
-    marginRight: '1%',
+  },
+  subcategoryImageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: Colors.background.primary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    marginBottom: 6,
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   subcategoryImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginBottom: 6,
-    backgroundColor: Colors.background.secondary,
+    width: '100%',
+    height: '100%',
   },
   subcategoryName: {
     fontSize: 10,
@@ -473,7 +552,7 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
   },
   productInfo: {
     padding: 12,
