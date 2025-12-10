@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   horizontalProductImage: {
     width: '100%',
     height: 140,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
   },
   horizontalProductInfo: {
     padding: 10,

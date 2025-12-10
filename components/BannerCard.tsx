@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Banner } from '@/lib/bannerService';
 import Colors from '@/constants/colors';
 import { useImpressionTracking, useWebImpressionTracking } from '@/hooks/useImpressionTracking';
@@ -19,6 +20,11 @@ const BannerCard: React.FC<BannerCardProps> = ({
   priority = 'normal',
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
+  const { width: screenWidth } = useWindowDimensions();
+  
+  // Calculate responsive banner dimensions
+  const bannerWidth = Math.min(320, screenWidth - 32); // Max 320px, but responsive to screen
+  const bannerHeight = (bannerWidth * 160) / 320; // Maintain 2:1 aspect ratio
   
   // Use platform-specific impression tracking
   const nativeTracking = useImpressionTracking({
@@ -60,10 +66,13 @@ const BannerCard: React.FC<BannerCardProps> = ({
   // Use web ref for Intersection Observer
   const containerRef = Platform.OS === 'web' ? webTracking.elementRef : null;
 
+  // Only show overlay if there are tags (title or subtitle) to display
+  const hasTags = !!(banner.title || banner.subtitle);
+
   return (
     <TouchableOpacity
       ref={containerRef as any}
-      style={styles.container}
+      style={[styles.container, { width: bannerWidth, height: bannerHeight }]}
       onPress={handlePress}
       activeOpacity={0.9}
       accessibilityRole="button"
@@ -80,19 +89,27 @@ const BannerCard: React.FC<BannerCardProps> = ({
         onError={() => setImageLoading(false)}
       />
       
-      {(banner.title || banner.subtitle) && (
-        <View style={styles.overlay}>
-          {banner.title && (
-            <Text style={styles.title} numberOfLines={2}>
-              {banner.title}
-            </Text>
-          )}
-          {banner.subtitle && (
-            <Text style={styles.subtitle} numberOfLines={2}>
-              {banner.subtitle}
-            </Text>
-          )}
-        </View>
+      {hasTags && (
+        <LinearGradient
+          colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)']}
+          locations={[0, 0.3, 0.6, 1]}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 0, y: 0.5 }}
+          style={styles.overlay}
+        >
+          <View style={styles.overlayContent}>
+            {banner.title && (
+              <Text style={styles.title} numberOfLines={2}>
+                {banner.title}
+              </Text>
+            )}
+            {banner.subtitle && (
+              <Text style={styles.subtitle} numberOfLines={2}>
+                {banner.subtitle}
+              </Text>
+            )}
+          </View>
+        </LinearGradient>
       )}
     </TouchableOpacity>
   );
@@ -100,8 +117,6 @@ const BannerCard: React.FC<BannerCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: 320,
-    height: 160,
     borderRadius: 16,
     marginRight: 16,
     overflow: 'hidden',
@@ -130,10 +145,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    height: '50%', // Cover bottom half with gradient
+  },
+  overlayContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
   },
   title: {
     fontSize: 20,

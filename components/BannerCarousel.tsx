@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, Platform, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { Banner } from '@/lib/bannerService';
 import { bannerService } from '@/lib/bannerService';
@@ -19,10 +19,7 @@ interface BannerCarouselProps {
   autoPlayInterval?: number;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BANNER_WIDTH = 320;
 const BANNER_SPACING = 16;
-const BANNER_ITEM_WIDTH = BANNER_WIDTH + BANNER_SPACING;
 
 const BannerCarousel: React.FC<BannerCarouselProps> = ({
   banners,
@@ -33,10 +30,15 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
 }) => {
   const router = useRouter();
   const { user } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isScrollingRef = useRef(false);
+  
+  // Calculate responsive banner dimensions
+  const BANNER_WIDTH = Math.min(320, screenWidth - 32); // Max 320px, but responsive to screen
+  const BANNER_ITEM_WIDTH = BANNER_WIDTH + BANNER_SPACING;
 
   // Handle banner press with click tracking
   const handleBannerPress = useCallback(async (banner: Banner) => {
@@ -98,10 +100,11 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
         setCurrentIndex((prevIndex) => {
           const nextIndex = (prevIndex + 1) % banners.length;
+          const bannerItemWidth = Math.min(320, screenWidth - 32) + BANNER_SPACING;
           
           // Scroll to next banner
           scrollViewRef.current?.scrollTo({
-            x: nextIndex * BANNER_ITEM_WIDTH,
+            x: nextIndex * bannerItemWidth,
             animated: true,
           });
 
@@ -122,12 +125,13 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   // Handle scroll events to update current index
   const handleScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / BANNER_ITEM_WIDTH);
+    const bannerItemWidth = Math.min(320, screenWidth - 32) + BANNER_SPACING;
+    const index = Math.round(offsetX / bannerItemWidth);
     
     if (index !== currentIndex && index >= 0 && index < banners.length) {
       setCurrentIndex(index);
     }
-  }, [currentIndex, banners.length]);
+  }, [currentIndex, banners.length, screenWidth]);
 
   // Handle scroll begin (user is manually scrolling)
   const handleScrollBeginDrag = useCallback(() => {
@@ -145,14 +149,15 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   // Handle momentum scroll end (for iOS smooth scrolling)
   const handleMomentumScrollEnd = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / BANNER_ITEM_WIDTH);
+    const bannerItemWidth = Math.min(320, screenWidth - 32) + BANNER_SPACING;
+    const index = Math.round(offsetX / bannerItemWidth);
     
     if (index >= 0 && index < banners.length) {
       setCurrentIndex(index);
     }
     
     isScrollingRef.current = false;
-  }, [banners.length]);
+  }, [banners.length, screenWidth]);
 
   if (banners.length === 0) {
     return null;
