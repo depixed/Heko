@@ -19,6 +19,7 @@ export interface OrderWithRelations extends OrderRow {
 export interface CreateOrderData {
   userId: string;
   addressId: string;
+  deliverySlotId: string; // NOW REQUIRED
   items: Array<{
     productId: string;
     productName: string;
@@ -71,9 +72,20 @@ export const orderService = {
     return fallback;
   },
 
-  async createOrder(orderData: CreateOrderData): Promise<{ success: boolean; data?: OrderWithRelations; error?: string }> {
+  async createOrder(orderData: CreateOrderData): Promise<{ success: boolean; data?: OrderWithRelations; error?: { code?: string; message?: string } }> {
     try {
       console.log('[ORDER] Creating order for user:', orderData.userId);
+
+      // Validate slot is provided
+      if (!orderData.deliverySlotId) {
+        return {
+          success: false,
+          error: {
+            code: 'SLOT_REQUIRED',
+            message: 'Please select a delivery time slot'
+          }
+        };
+      }
 
       const deliveryOTP = Math.floor(100000 + Math.random() * 900000).toString();
       const orderNumber = await this.generateUniqueOrderNumber();
@@ -82,6 +94,7 @@ export const orderService = {
         order_number: orderNumber,
         user_id: orderData.userId,
         address_id: orderData.addressId,
+        delivery_slot_id: orderData.deliverySlotId, // NEW
         status: 'placed',
         subtotal: orderData.subtotal,
         discount: orderData.discount,
@@ -105,7 +118,19 @@ export const orderService = {
 
       if (orderError || !order) {
         console.error('[ORDER] Error creating order:', orderError);
-        return { success: false, error: 'Failed to create order' };
+        
+        // Handle specific slot validation errors
+        if (orderError?.message?.includes('SLOT_')) {
+          return {
+            success: false,
+            error: {
+              code: this.extractSlotErrorCode(orderError.message),
+              message: this.getSlotErrorMessage(orderError.message)
+            }
+          };
+        }
+
+        return { success: false, error: { message: 'Failed to create order' } };
       }
 
       const orderId = (order as OrderRow).id;
@@ -196,6 +221,35 @@ export const orderService = {
       }
 
       console.log('[ORDER] Order created successfully:', orderId);
+      
+      // Check if we're in single-vendor mode and call auto-assign
+      const { data: modeData } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'vendor_assignment_mode')
+        .single();
+
+      const assignmentMode = modeData?.value as string;
+
+      if (assignmentMode === 'single') {
+        // Call auto-assign edge function
+        console.log('[ORDER] Auto-assigning vendor for order:', orderId);
+        const { data: assignResult, error: assignError } = await supabase.functions.invoke(
+          'auto-assign-order',
+          { body: { order_id: orderId } }
+        );
+
+        if (assignError) {
+          console.error('[ORDER] Auto-assign error:', assignError);
+          // Don't fail the order creation, but log the error
+          // The order will remain in 'placed' status and can be manually assigned
+        } else if (!assignResult?.success) {
+          console.error('[ORDER] Auto-assign failed:', assignResult?.error);
+          // Order remains in 'placed' status
+        } else {
+          console.log('[ORDER] Vendor assigned:', assignResult.vendor_name, `(${assignResult.distance_km}km)`);
+        }
+      }
       
       // Get the complete order data
       // Note: Notification is handled by database trigger/webhook when order is inserted
@@ -391,5 +445,26 @@ export const orderService = {
       console.error('[ORDER] Error processing delivery cashback:', error);
       return { success: false, error: 'Failed to process delivery cashback' };
     }
+  },
+
+  extractSlotErrorCode(message: string): string {
+    if (message.includes('SLOT_FULL')) return 'SLOT_FULL';
+    if (message.includes('SLOT_DISABLED')) return 'SLOT_DISABLED';
+    if (message.includes('SLOT_EXPIRED')) return 'SLOT_EXPIRED';
+    if (message.includes('SLOT_CUTOFF_PASSED')) return 'SLOT_CUTOFF_PASSED';
+    if (message.includes('SLOT_NOT_FOUND')) return 'SLOT_NOT_FOUND';
+    return 'BOOKING_FAILED';
+  },
+
+  getSlotErrorMessage(code: string): string {
+    const messages: Record<string, string> = {
+      SLOT_FULL: 'This delivery slot just filled up. Please choose another time.',
+      SLOT_DISABLED: 'This delivery slot is no longer available. Please choose another time.',
+      SLOT_EXPIRED: 'This delivery slot has passed. Please choose another time.',
+      SLOT_NOT_FOUND: 'Invalid delivery slot. Please refresh and select a valid slot.',
+      SLOT_CUTOFF_PASSED: 'Booking has closed for this slot. Please choose another time.',
+      BOOKING_FAILED: 'Failed to book delivery slot. Please try again.'
+    };
+    return messages[code] || messages.BOOKING_FAILED;
   },
 };

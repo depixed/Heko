@@ -10,6 +10,7 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProductProvider } from "@/contexts/ProductContext";
 import { OrderProvider } from "@/contexts/OrderContext";
 import { BannerProvider } from "@/contexts/BannerContext";
+import { VendorAssignmentProvider } from "@/contexts/VendorAssignmentContext";
 import { useBannerPrefetch } from "@/hooks/useBannerPrefetch";
 import TopNav from "@/components/TopNav";
 
@@ -63,17 +64,19 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <AuthProvider>
-            <ProductProvider>
-              <BannerProvider>
-                <OrderProvider>
-                  <AddressProvider>
-                    <NotificationProvider>
-                      <RootLayoutNav />
-                    </NotificationProvider>
-                  </AddressProvider>
-                </OrderProvider>
-              </BannerProvider>
-            </ProductProvider>
+            <AddressProvider>
+              <VendorAssignmentProvider>
+                <ProductProvider>
+                  <BannerProvider>
+                    <OrderProvider>
+                      <NotificationProvider>
+                        <RootLayoutNav />
+                      </NotificationProvider>
+                    </OrderProvider>
+                  </BannerProvider>
+                </ProductProvider>
+              </VendorAssignmentProvider>
+            </AddressProvider>
           </AuthProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

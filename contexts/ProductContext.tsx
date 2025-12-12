@@ -3,8 +3,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { catalogService, ProductWithRelations } from '@/lib/catalog.service';
 import { supabase } from '@/lib/supabase';
 import type { Product, Category, Subcategory } from '@/types';
+import { useVendorAssignment } from './VendorAssignmentContext';
 
 export const [ProductProvider, useProducts] = createContextHook(() => {
+  const { mode, activeVendorId, hasEligibleVendor } = useVendorAssignment();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState<boolean>(true);
@@ -53,10 +55,44 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
   const loadProducts = async () => {
     try {
       setIsLoadingProducts(true);
-      console.log('[ProductContext] Loading products');
+      
+      // In single mode without eligible vendor, don't load products
+      if (mode === 'single' && !hasEligibleVendor) {
+        console.log('[ProductContext] No eligible vendor - hiding products');
+        setProducts([]);
+        return;
+      }
+
+      console.log('[ProductContext] Loading products', mode === 'single' ? `for vendor: ${activeVendorId}` : '');
       const result = await catalogService.getProducts();
       if (result.success && result.data) {
-        const appProducts: Product[] = result.data.map((prod: ProductWithRelations) => {
+        let filteredProducts = result.data;
+
+        // In single mode, filter by active vendor's products
+        if (mode === 'single' && activeVendorId) {
+          console.log('[ProductContext] Filtering products for vendor:', activeVendorId);
+          // Fetch vendor_products for active vendor
+          const { data: vendorProducts, error: vendorProductsError } = await supabase
+            .from('vendor_products')
+            .select('product_id')
+            .eq('vendor_id', activeVendorId)
+            .eq('is_available', true);
+
+          if (vendorProductsError) {
+            console.error('[ProductContext] Error fetching vendor products:', vendorProductsError);
+          } else {
+            const availableProductIds = new Set(
+              vendorProducts?.map(vp => vp.product_id) || []
+            );
+
+            filteredProducts = filteredProducts.filter(p =>
+              availableProductIds.has(p.id)
+            );
+            console.log(`[ProductContext] Filtered to ${filteredProducts.length} products for vendor`);
+          }
+        }
+
+        const appProducts: Product[] = filteredProducts.map((prod: ProductWithRelations) => {
           // Handle images array from database
           const imageArray = Array.isArray(prod.images) && prod.images.length > 0 
             ? prod.images 
@@ -106,10 +142,35 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
 
   const searchProducts = useCallback(async (query: string): Promise<Product[]> => {
     try {
+      // In single mode without eligible vendor, return empty results
+      if (mode === 'single' && !hasEligibleVendor) {
+        return [];
+      }
+
       console.log('[ProductContext] Searching products:', query);
       const result = await catalogService.searchProducts(query);
       if (result.success && result.data) {
-        const searchResults: Product[] = result.data.map((prod: ProductWithRelations) => {
+        let filteredResults = result.data;
+
+        // In single mode, filter by active vendor's products
+        if (mode === 'single' && activeVendorId) {
+          const { data: vendorProducts } = await supabase
+            .from('vendor_products')
+            .select('product_id')
+            .eq('vendor_id', activeVendorId)
+            .eq('is_available', true);
+
+          if (vendorProducts) {
+            const availableProductIds = new Set(
+              vendorProducts.map(vp => vp.product_id)
+            );
+            filteredResults = filteredResults.filter(p =>
+              availableProductIds.has(p.id)
+            );
+          }
+        }
+
+        const searchResults: Product[] = filteredResults.map((prod: ProductWithRelations) => {
           // Handle images array from database
           const imageArray = Array.isArray(prod.images) && prod.images.length > 0 
             ? prod.images 
@@ -138,7 +199,7 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
       console.error('[ProductContext] Error searching products:', error);
       return [];
     }
-  }, []);
+  }, [mode, activeVendorId, hasEligibleVendor]);
 
   const refreshProducts = useCallback(async () => {
     await loadProducts();
@@ -147,6 +208,13 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
   const refreshCategories = useCallback(async () => {
     await loadCategories();
   }, []);
+
+  // Reload products when active vendor changes (single mode)
+  useEffect(() => {
+    if (mode === 'single') {
+      loadProducts();
+    }
+  }, [activeVendorId, hasEligibleVendor, mode]);
 
   // Real-time subscription for product updates
   useEffect(() => {
