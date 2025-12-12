@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { cartService, type CartItemWithProduct } from '@/lib/cart.service';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
+import { useVendorAssignment } from './VendorAssignmentContext';
 import type { Product } from '@/types';
 
 interface CartItem {
@@ -22,8 +23,10 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { activeVendorId, mode } = useVendorAssignment();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const prevActiveVendorId = useRef<string | null>(null);
 
   const refreshCart = useCallback(async () => {
     if (!user?.id) {
@@ -69,6 +72,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshCart();
   }, [refreshCart]);
+
+  // Clear cart when active vendor changes in single mode
+  useEffect(() => {
+    if (mode === 'single' && activeVendorId !== prevActiveVendorId.current) {
+      if (prevActiveVendorId.current !== null && cart.length > 0) {
+        console.log('[Cart] Active vendor changed - clearing cart');
+        clearCart();
+      }
+      prevActiveVendorId.current = activeVendorId;
+    }
+  }, [activeVendorId, mode, cart.length, clearCart]);
 
   // Real-time subscription for cart items
   useEffect(() => {

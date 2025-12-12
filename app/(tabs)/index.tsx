@@ -8,17 +8,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/contexts/ProductContext';
 import { useBanners } from '@/hooks/useBanners';
 import { useAddresses } from '@/contexts/AddressContext';
+import { useVendorAssignment } from '@/contexts/VendorAssignmentContext';
 import { APP_CONFIG } from '@/constants/config';
 import type { Product } from '@/types';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import TopNav from '@/components/TopNav';
 import BannerSection from '@/components/BannerSection';
+import { NoVendorAvailable } from '@/components/NoVendorAvailable';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, cart, addToCart, updateCartItem } = useAuth();
   const { categories, products, isLoadingCategories, isLoadingProducts, searchProducts } = useProducts();
   const { getDefaultAddress } = useAddresses();
+  const { mode, hasEligibleVendor, isLoading: isLoadingVendor } = useVendorAssignment();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   
@@ -196,11 +199,20 @@ export default function HomeScreen() {
     return `${addressType} - ${area}`;
   };
 
+  // Show "No Vendor Available" message in single mode when no eligible vendor
+  if (mode === 'single' && !hasEligibleVendor && !isLoadingVendor) {
+    return (
+      <ResponsiveContainer>
+        <NoVendorAvailable />
+      </ResponsiveContainer>
+    );
+  }
+
   return (
     <ResponsiveContainer>
       <View style={styles.container}>
-        <TopNav 
-          showBackButton={false} 
+        <TopNav
+          showBackButton={false}
           showAddress={true}
           addressLabel="Deliver to"
           addressValue={getAddressDisplayText()}

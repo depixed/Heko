@@ -11,12 +11,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { ChevronLeft, Bell, HelpCircle, ChevronDown, ChevronUp, Copy, Maximize2, Download } from 'lucide-react-native';
+import { ChevronLeft, Bell, HelpCircle, ChevronDown, ChevronUp, Copy, Maximize2, Download, Clock } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Colors from '@/constants/colors';
 import { useOrders } from '@/contexts/OrderContext';
 import type { OrderWithRelations } from '@/lib/order.service';
 import type { Database } from '@/types/database';
+import { slotService } from '@/lib/slot.service';
 
 type OrderStatus = Database['public']['Tables']['orders']['Row']['status'];
 
@@ -287,6 +288,32 @@ export default function OrderDetailsScreen() {
             </Text>
           </View>
         )}
+
+        {/* Delivery Slot Section */}
+        <View style={styles.deliverySlotCard}>
+          <View style={styles.deliverySlotHeader}>
+            <View style={styles.iconContainer}>
+              <Clock size={20} color={Colors.brand.primary} />
+            </View>
+            <Text style={styles.deliverySlotTitle}>Delivery Time</Text>
+          </View>
+
+          {order.delivery_date && order.delivery_window_start && order.delivery_window_end ? (
+            <View style={styles.deliverySlotContent}>
+              <Text style={styles.deliveryDate}>
+                {slotService.formatFullDate(order.delivery_date)}
+              </Text>
+              <Text style={styles.deliveryTime}>
+                {slotService.formatTimeRange(
+                  order.delivery_window_start,
+                  order.delivery_window_end
+                )}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.noSlotInfo}>Delivery time not specified</Text>
+          )}
+        </View>
 
         <View style={styles.itemsCard}>
           <TouchableOpacity
@@ -807,5 +834,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text.inverse,
+  },
+  // Delivery Slot Styles
+  deliverySlotCard: {
+    backgroundColor: Colors.background.primary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  deliverySlotHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.brand.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deliverySlotTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+  },
+  deliverySlotContent: {
+    gap: 4,
+  },
+  deliveryDate: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+  },
+  deliveryTime: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.brand.primary,
+  },
+  noSlotInfo: {
+    fontSize: 14,
+    color: Colors.text.tertiary,
+    fontStyle: 'italic',
   },
 });
