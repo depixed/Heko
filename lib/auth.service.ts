@@ -42,7 +42,7 @@ export const authService = {
     }
   },
 
-  async verifyOTPLogin(phone: string, otp: string): Promise<{ success: boolean; user?: User; token?: string; error?: string }> {
+  async verifyOTPLogin(phone: string, otp: string): Promise<{ success: boolean; user?: User; token?: string; isNewUser?: boolean; error?: string }> {
     try {
       console.log('[AUTH] Verifying OTP for login:', phone);
       
@@ -66,7 +66,8 @@ export const authService = {
       }
 
       if (data.isNewUser) {
-        return { success: false, error: 'Please sign up first' };
+        console.log('[AUTH] New user detected during login, redirecting to signup');
+        return { success: true, isNewUser: true };
       }
 
       if (!data.user || !data.sessionToken) {

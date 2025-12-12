@@ -53,7 +53,11 @@ export default function OTPScreen() {
       if (mode === 'login') {
         const result = await authService.verifyOTPLogin(phone, otp);
         
-        if (result.success && result.user && result.token) {
+        if (result.success && result.isNewUser) {
+          // New user detected during login - redirect to signup flow
+          setOtpVerified(true);
+        } else if (result.success && result.user && result.token) {
+          // Existing user - proceed with login
           await login(result.user, result.token);
           router.replace('/(tabs)/' as any);
         } else {
@@ -127,7 +131,7 @@ export default function OTPScreen() {
     }
   };
 
-  if (otpVerified && mode === 'signup') {
+  if (otpVerified && (mode === 'signup' || mode === 'login')) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
@@ -138,7 +142,9 @@ export default function OTPScreen() {
             <View style={styles.header}>
               <Text style={styles.title}>Complete Your Profile</Text>
               <Text style={styles.subtitle}>
-                Tell us a bit about yourself
+                {mode === 'login' 
+                  ? 'This phone number is not registered. Please complete your profile to create an account.'
+                  : 'Tell us a bit about yourself'}
               </Text>
             </View>
 
