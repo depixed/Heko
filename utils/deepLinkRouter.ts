@@ -40,6 +40,18 @@ export class DeepLinkRouter {
         const url = new URL(deeplink);
         const path = url.pathname;
         
+        // Handle referral link pattern: /r/{code}
+        if (path.startsWith('/r/')) {
+          const referralCode = path.substring(3); // Remove '/r/'
+          if (referralCode) {
+            return {
+              type: 'referral-signup',
+              value: referralCode,
+              params: this.parseQueryString(url.search.substring(1)),
+            };
+          }
+        }
+        
         // List of internal routes that should be handled as app navigation
         const internalRoutes = [
           '/referral',
@@ -257,6 +269,10 @@ export class DeepLinkRouter {
         this.navigateToReferral();
         break;
 
+      case 'referral-signup':
+        this.navigateToReferralSignup(action.value);
+        break;
+
       case 'returns':
         // Navigate to return details
         this.navigateToOrder(action.params?.order_id || action.value, action.params);
@@ -353,6 +369,13 @@ export class DeepLinkRouter {
    */
   private navigateToReferral(): void {
     this.router.push('/referral' as any);
+  }
+
+  /**
+   * Navigate to signup page with referral code prefilled
+   */
+  private navigateToReferralSignup(referralCode: string): void {
+    this.router.push(`/auth/signup?referralCode=${encodeURIComponent(referralCode)}` as any);
   }
 
   /**

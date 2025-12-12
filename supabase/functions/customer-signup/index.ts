@@ -36,8 +36,12 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Generate referral code
-    const referralCode = 'HEKO' + Math.random().toString(36).substring(2, 10).toUpperCase()
+    // Generate 4-digit alphanumeric referral code
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let referralCode = ''
+    for (let i = 0; i < 4; i++) {
+      referralCode += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
     
     // Generate UUID for profile
     const profileId = crypto.randomUUID()
