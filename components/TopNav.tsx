@@ -15,6 +15,7 @@ interface TopNavProps {
   addressLabel?: string;
   addressValue?: string;
   onAddressPress?: () => void;
+  headerRight?: () => React.ReactNode;
 }
 
 export default function TopNav({ 
@@ -24,7 +25,8 @@ export default function TopNav({
   showAddress,
   addressLabel,
   addressValue,
-  onAddressPress
+  onAddressPress,
+  headerRight
 }: TopNavProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -80,48 +82,54 @@ export default function TopNav({
           ) : null}
         </View>
 
-        {/* Right: Wallet, Notifications, Cart */}
+        {/* Right: Custom headerRight or Wallet, Notifications, Cart */}
         <View style={styles.rightSection}>
-          {/* Wallet Badge */}
-          <TouchableOpacity
-            style={styles.walletBadge}
-            onPress={() => router.push('/wallet' as any)}
-            testID="top-nav-wallet-button"
-          >
-            <Text style={styles.walletText}>₹{totalBalance}</Text>
-          </TouchableOpacity>
+          {headerRight ? (
+            headerRight()
+          ) : (
+            <>
+              {/* Wallet Badge */}
+              <TouchableOpacity
+                style={styles.walletBadge}
+                onPress={() => router.push('/wallet' as any)}
+                testID="top-nav-wallet-button"
+              >
+                <Text style={styles.walletText}>₹{totalBalance}</Text>
+              </TouchableOpacity>
 
-          {/* Notifications Icon */}
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/notifications' as any)}
-            testID="top-nav-notifications-button"
-          >
-            <Bell size={24} color={Colors.text.primary} />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+              {/* Notifications Icon */}
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => router.push('/notifications' as any)}
+                testID="top-nav-notifications-button"
+              >
+                <Bell size={24} color={Colors.text.primary} />
+                {unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
-          {/* Cart Icon */}
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/cart' as any)}
-            testID="top-nav-cart-button"
-          >
-            <ShoppingCart size={24} color={Colors.text.primary} />
-            {cartItemCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+              {/* Cart Icon */}
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => router.push('/cart' as any)}
+                testID="top-nav-cart-button"
+              >
+                <ShoppingCart size={24} color={Colors.text.primary} />
+                {cartItemCount > 0 && (
+                  <View style={styles.cartBadge}>
+                    <Text style={styles.cartBadgeText}>
+                      {cartItemCount > 99 ? '99+' : cartItemCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </View>

@@ -30,7 +30,7 @@ function RootLayoutNav() {
           if (route.name === 'splash' || route.name === 'auth' || route.name === '(tabs)') {
             return null;
           }
-          return <TopNav title={options.title} />;
+          return <TopNav title={options.title} headerRight={options.headerRight} />;
         },
       }}
     >

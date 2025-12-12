@@ -1,15 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { authService } from '@/lib/auth.service';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { referralCode: urlReferralCode } = useLocalSearchParams<{ referralCode?: string }>();
   const [phone, setPhone] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Prefill referral code from URL params
+  useEffect(() => {
+    if (urlReferralCode) {
+      setReferralCode(urlReferralCode);
+    }
+  }, [urlReferralCode]);
 
   const handleContinue = async () => {
     if (phone.length !== 10) {

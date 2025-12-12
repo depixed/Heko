@@ -594,6 +594,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const updateUser = useCallback(async (updates: Partial<User>) => {
     if (!user) return;
     console.log('[AuthContext] Updating user profile:', updates);
+
+    // If updating referredBy, just update local state (database already updated by addReferrer)
+    if (updates.referredBy !== undefined) {
+      const updatedUser: User = {
+        ...user,
+        ...updates,
+      };
+      setUser(updatedUser);
+      console.log('[AuthContext] User referredBy updated successfully');
+      return;
+    }
+
+    // For other fields (name, email), use updateProfile service
     const result = await authService.updateProfile(user.id, updates);
     if (result.success) {
       const updatedUser: User = {

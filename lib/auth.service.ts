@@ -282,4 +282,71 @@ export const authService = {
       return { success: false, error: 'Failed to fetch profile' };
     }
   },
+
+  async lookupReferrerByCode(referralCode: string): Promise<{ success: boolean; referrer?: { id: string; name: string }; error?: string }> {
+    try {
+      console.log('[AUTH] Looking up referrer by code:', referralCode);
+
+      // Validate referral code format (4 alphanumeric characters)
+      const codeRegex = /^[A-Z0-9]{4}$/;
+      if (!codeRegex.test(referralCode.toUpperCase())) {
+        return { success: false, error: 'Invalid referral code format. Must be 4 alphanumeric characters.' };
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .eq('referral_code', referralCode.toUpperCase())
+        .maybeSingle();
+
+      if (error) {
+        console.error('[AUTH] Error looking up referrer:', error);
+        return { success: false, error: 'Failed to lookup referrer' };
+      }
+
+      if (!data) {
+        return { success: false, error: 'Referral code not found' };
+      }
+
+      return { success: true, referrer: { id: data.id, name: data.name } };
+    } catch (error) {
+      console.error('[AUTH] Error looking up referrer:', error);
+      return { success: false, error: 'Failed to lookup referrer' };
+    }
+  },
+
+  async addReferrer(userId: string, referralCode: string): Promise<{ success: boolean; referrer?: { id: string; name: string }; error?: string }> {
+    try {
+      console.log('[AUTH] Adding referrer for user:', userId, 'code:', referralCode);
+
+      const response = await fetch(`${FUNCTIONS_URL}/customer-add-referrer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          userId,
+          referralCode,
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok || !responseData.success) {
+        console.error('[AUTH] Error adding referrer:', responseData);
+        return { success: false, error: responseData.error || 'Failed to add referrer' };
+      }
+
+      console.log('[AUTH] Successfully added referrer:', responseData.referrer);
+      return { 
+        success: true, 
+        referrer: responseData.referrer 
+      };
+    } catch (error) {
+      console.error('[AUTH] Error adding referrer:', error);
+      return { success: false, error: 'Failed to add referrer' };
+    }
+  },
 };

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,11 @@ import {
   Share,
   Alert,
   Platform,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useNavigation } from 'expo-router';
 import {
   ChevronLeft,
   HelpCircle,
@@ -17,21 +20,53 @@ import {
   Share2,
   Download,
   ChevronRight,
+  UserPlus,
+  X,
+  Check,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '@/contexts/AuthContext';
+import { authService } from '@/lib/auth.service';
 import Colors from '@/constants/colors';
 
 export default function ReferralScreen() {
   const { user, referralStats, updateUser } = useAuth();
+  const navigation = useNavigation();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showAddReferrerModal, setShowAddReferrerModal] = useState(false);
+  const [referralCodeInput, setReferralCodeInput] = useState('');
+  const [referrerDetails, setReferrerDetails] = useState<{ id: string; name: string } | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const qrRef = useRef<any>(null);
 
   const referralCode = user?.referralId || '';
-  const referralLink = `https://heko.app/r/${referralCode}`;
+  const referralLink = `https://heko.co.in/r/${referralCode}`;
+
+  // Update header dynamically when user state changes
+  useLayoutEffect(() => {
+    const hasNoReferrer = user && (!user.referredBy || user.referredBy === null || user.referredBy === undefined || user.referredBy === '');
+    console.log('[Referral] useLayoutEffect - User:', user?.id, 'referredBy:', user?.referredBy, 'hasNoReferrer:', hasNoReferrer);
+    
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerRightContainer}>
+          {hasNoReferrer && (
+            <TouchableOpacity onPress={handleOpenAddReferrerModal} style={styles.headerButton}>
+              <UserPlus size={24} color={Colors.brand.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={openTerms} style={styles.headerButton}>
+            <HelpCircle size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [user, navigation]);
 
   const generateReferralCode = async () => {
     // Check if user is logged in
@@ -47,7 +82,12 @@ export default function ReferralScreen() {
 
     setIsGenerating(true);
     try {
-      const newCode = `HEKO${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      // Generate 4-digit alphanumeric code
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let newCode = '';
+      for (let i = 0; i < 4; i++) {
+        newCode += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
       await updateUser({ referralId: newCode });
       Alert.alert('Success', 'Your referral code has been generated!');
     } catch (error) {
@@ -167,6 +207,82 @@ export default function ReferralScreen() {
     Alert.alert('Coming Soon', 'Detailed activity view will be available soon.');
   };
 
+  const handleOpenAddReferrerModal = () => {
+    setShowAddReferrerModal(true);
+    setReferralCodeInput('');
+    setReferrerDetails(null);
+    setError(null);
+  };
+
+  const handleCloseAddReferrerModal = () => {
+    setShowAddReferrerModal(false);
+    setReferralCodeInput('');
+    setReferrerDetails(null);
+    setError(null);
+  };
+
+  const handleCheckReferrer = async () => {
+    if (!referralCodeInput || referralCodeInput.length !== 4) {
+      setError('Please enter a valid 4-character referral code');
+      return;
+    }
+
+    setIsChecking(true);
+    setError(null);
+    setReferrerDetails(null);
+
+    try {
+      const result = await authService.lookupReferrerByCode(referralCodeInput);
+      if (result.success && result.referrer) {
+        setReferrerDetails(result.referrer);
+      } else {
+        setError(result.error || 'Referral code not found');
+      }
+    } catch (error) {
+      console.error('Error checking referrer:', error);
+      setError('Failed to check referral code. Please try again.');
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const handleConfirmReferrer = async () => {
+    if (!user || !referrerDetails) return;
+
+    setIsConfirming(true);
+    setError(null);
+
+    try {
+      console.log('[Referral] Attempting to add referrer:', {
+        userId: user.id,
+        referralCode: referralCodeInput,
+        referrerId: referrerDetails.id,
+        referrerName: referrerDetails.name,
+      });
+      
+      const result = await authService.addReferrer(user.id, referralCodeInput);
+      
+      console.log('[Referral] Add referrer result:', result);
+      
+      if (result.success && result.referrer) {
+        // Update user state with new referredBy from the response
+        await updateUser({ referredBy: result.referrer.id });
+        Alert.alert('Success', `You have successfully added ${result.referrer.name} as your referrer!`);
+        handleCloseAddReferrerModal();
+      } else {
+        const errorMessage = result.error || 'Failed to add referrer';
+        console.error('[Referral] Failed to add referrer:', errorMessage);
+        setError(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('[Referral] Exception adding referrer:', error);
+      console.error('[Referral] Error details:', JSON.stringify(error, null, 2));
+      setError(error?.message || 'Failed to add referrer. Please try again.');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   if (!referralCode) {
     return (
       <View style={styles.container}>
@@ -180,9 +296,16 @@ export default function ReferralScreen() {
               </TouchableOpacity>
             ),
             headerRight: () => (
-              <TouchableOpacity onPress={openTerms} style={styles.headerButton}>
-                <HelpCircle size={24} color={Colors.text.primary} />
-              </TouchableOpacity>
+              <View style={styles.headerRightContainer}>
+                {user && (!user.referredBy || user.referredBy === null || user.referredBy === undefined || user.referredBy === '') && (
+                  <TouchableOpacity onPress={handleOpenAddReferrerModal} style={styles.headerButton}>
+                    <UserPlus size={24} color={Colors.brand.primary} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={openTerms} style={styles.headerButton}>
+                  <HelpCircle size={24} color={Colors.text.primary} />
+                </TouchableOpacity>
+              </View>
             ),
           }}
         />
@@ -206,6 +329,103 @@ export default function ReferralScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Add Referrer Modal */}
+        <Modal
+          visible={showAddReferrerModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={handleCloseAddReferrerModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Referrer</Text>
+                <TouchableOpacity onPress={handleCloseAddReferrerModal} style={styles.modalCloseButton}>
+                  <X size={24} color={Colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.modalLabel}>Enter Referral Code</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Enter 4-character code"
+                  placeholderTextColor={Colors.text.tertiary}
+                  value={referralCodeInput}
+                  onChangeText={(text) => {
+                    setReferralCodeInput(text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+                    setError(null);
+                    setReferrerDetails(null);
+                  }}
+                  autoCapitalize="characters"
+                  maxLength={4}
+                  editable={!isChecking && !isConfirming}
+                />
+
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
+
+                {referrerDetails && (
+                  <View style={styles.referrerDetailsContainer}>
+                    <View style={styles.referrerInfo}>
+                      <View style={styles.referrerAvatar}>
+                        <Text style={styles.referrerAvatarText}>
+                          {referrerDetails.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={styles.referrerName}>{referrerDetails.name}</Text>
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.checkButton,
+                    (referralCodeInput.length !== 4 || isChecking || isConfirming) && styles.checkButtonDisabled,
+                  ]}
+                  onPress={handleCheckReferrer}
+                  disabled={referralCodeInput.length !== 4 || isChecking || isConfirming}
+                >
+                  {isChecking ? (
+                    <ActivityIndicator color={Colors.text.inverse} />
+                  ) : (
+                    <Text style={styles.checkButtonText}>Check Referrer</Text>
+                  )}
+                </TouchableOpacity>
+
+                {referrerDetails && (
+                  <View style={styles.confirmActions}>
+                    <TouchableOpacity
+                      style={[styles.cancelButton, isConfirming && styles.cancelButtonDisabled]}
+                      onPress={handleCloseAddReferrerModal}
+                      disabled={isConfirming}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.confirmButton, isConfirming && styles.confirmButtonDisabled]}
+                      onPress={handleConfirmReferrer}
+                      disabled={isConfirming}
+                    >
+                      {isConfirming ? (
+                        <ActivityIndicator color={Colors.text.inverse} />
+                      ) : (
+                        <>
+                          <Check size={20} color={Colors.text.inverse} />
+                          <Text style={styles.confirmButtonText}>Confirm</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -221,11 +441,18 @@ export default function ReferralScreen() {
               <ChevronLeft size={24} color={Colors.text.primary} />
             </TouchableOpacity>
           ),
-          headerRight: () => (
-            <TouchableOpacity onPress={openTerms} style={styles.headerButton}>
-              <HelpCircle size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-          ),
+            headerRight: () => (
+              <View style={styles.headerRightContainer}>
+                {user && (!user.referredBy || user.referredBy === null || user.referredBy === undefined || user.referredBy === '') && (
+                  <TouchableOpacity onPress={handleOpenAddReferrerModal} style={styles.headerButton}>
+                    <UserPlus size={24} color={Colors.brand.primary} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={openTerms} style={styles.headerButton}>
+                  <HelpCircle size={24} color={Colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+            ),
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -401,6 +628,103 @@ export default function ReferralScreen() {
           <Text style={styles.inviteButtonText}>Invite Friends</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Add Referrer Modal */}
+      <Modal
+        visible={showAddReferrerModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseAddReferrerModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Referrer</Text>
+              <TouchableOpacity onPress={handleCloseAddReferrerModal} style={styles.modalCloseButton}>
+                <X size={24} color={Colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Enter Referral Code</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter 4-character code"
+                placeholderTextColor={Colors.text.tertiary}
+                value={referralCodeInput}
+                onChangeText={(text) => {
+                  setReferralCodeInput(text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+                  setError(null);
+                  setReferrerDetails(null);
+                }}
+                autoCapitalize="characters"
+                maxLength={4}
+                editable={!isChecking && !isConfirming}
+              />
+
+              {error && (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              {referrerDetails && (
+                <View style={styles.referrerDetailsContainer}>
+                  <View style={styles.referrerInfo}>
+                    <View style={styles.referrerAvatar}>
+                      <Text style={styles.referrerAvatarText}>
+                        {referrerDetails.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={styles.referrerName}>{referrerDetails.name}</Text>
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.checkButton,
+                  (referralCodeInput.length !== 4 || isChecking || isConfirming) && styles.checkButtonDisabled,
+                ]}
+                onPress={handleCheckReferrer}
+                disabled={referralCodeInput.length !== 4 || isChecking || isConfirming}
+              >
+                {isChecking ? (
+                  <ActivityIndicator color={Colors.text.inverse} />
+                ) : (
+                  <Text style={styles.checkButtonText}>Check Referrer</Text>
+                )}
+              </TouchableOpacity>
+
+              {referrerDetails && (
+                <View style={styles.confirmActions}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, isConfirming && styles.cancelButtonDisabled]}
+                    onPress={handleCloseAddReferrerModal}
+                    disabled={isConfirming}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.confirmButton, isConfirming && styles.confirmButtonDisabled]}
+                    onPress={handleConfirmReferrer}
+                    disabled={isConfirming}
+                  >
+                    {isConfirming ? (
+                      <ActivityIndicator color={Colors.text.inverse} />
+                    ) : (
+                      <>
+                        <Check size={20} color={Colors.text.inverse} />
+                        <Text style={styles.confirmButtonText}>Confirm</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -759,6 +1083,164 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   inviteButtonText: {
+    color: Colors.text.inverse,
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.background.primary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: Platform.select({ ios: 40, android: 24, web: 24 }),
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+    backgroundColor: Colors.background.secondary,
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', web: 'monospace' }),
+    letterSpacing: 4,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  referrerDetailsContainer: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.brand.primary,
+  },
+  referrerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  referrerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.brand.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  referrerAvatarText: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text.inverse,
+  },
+  referrerName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    flex: 1,
+  },
+  checkButton: {
+    backgroundColor: Colors.brand.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  checkButtonDisabled: {
+    opacity: 0.5,
+  },
+  checkButtonText: {
+    color: Colors.text.inverse,
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.background.secondary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  cancelButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelButtonText: {
+    color: Colors.text.primary,
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: Colors.brand.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  confirmButtonText: {
     color: Colors.text.inverse,
     fontSize: 16,
     fontWeight: '600' as const,
