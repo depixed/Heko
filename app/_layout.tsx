@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Linking, Platform } from "react-native";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AddressProvider } from "@/contexts/AddressContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -13,14 +14,80 @@ import { BannerProvider } from "@/contexts/BannerContext";
 import { VendorAssignmentProvider } from "@/contexts/VendorAssignmentContext";
 import { useBannerPrefetch } from "@/hooks/useBannerPrefetch";
 import TopNav from "@/components/TopNav";
+import { handleDeepLink } from "@/utils/deepLinkRouter";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
+  const router = useRouter();
+  
   // Prefetch banners on app launch
   useBannerPrefetch();
+
+  // Handle deep links (initial URL and URL changes)
+  useEffect(() => {
+    // On web, check for referral links in the current URL
+    if (Platform.OS === 'web') {
+      // Check if current URL matches referral pattern: /r/{code}
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/r/')) {
+          // The route file will handle the redirect, but we can log it
+          console.log('[RootLayout] Web referral link detected:', path);
+        }
+      }
+      return; // Skip native deep link handling on web
+    }
+
+    let hasHandledInitialURL = false;
+    let isNavigating = false;
+
+    // Handle initial URL when app opens from a link (only once)
+    const handleInitialURL = async () => {
+      if (hasHandledInitialURL || isNavigating) return;
+      
+      try {
+        const initialURL = await Linking.getInitialURL();
+        if (initialURL) {
+          hasHandledInitialURL = true;
+          isNavigating = true;
+          console.log('[RootLayout] Initial URL detected:', initialURL);
+          // Use setTimeout to ensure router is ready
+          setTimeout(() => {
+            handleDeepLink(initialURL, router);
+            isNavigating = false;
+          }, 500);
+        }
+      } catch (error) {
+        console.error('[RootLayout] Error getting initial URL:', error);
+        isNavigating = false;
+      }
+    };
+
+    // Handle URL changes when app is already open
+    const handleURLChange = (event: { url: string }) => {
+      if (isNavigating) return;
+      
+      isNavigating = true;
+      console.log('[RootLayout] URL change detected:', event.url);
+      // Use setTimeout to debounce and ensure router is ready
+      setTimeout(() => {
+        handleDeepLink(event.url, router);
+        isNavigating = false;
+      }, 300);
+    };
+
+    // Set up listeners for native platforms
+    handleInitialURL();
+    const subscription = Linking.addEventListener('url', handleURLChange);
+    
+    return () => {
+      subscription.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
   return (
     <Stack
