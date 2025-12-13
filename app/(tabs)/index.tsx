@@ -74,7 +74,7 @@ export default function HomeScreen() {
         <View style={styles.horizontalProductInfo}>
           <View style={styles.horizontalProductTop}>
             <Text style={styles.horizontalProductName} numberOfLines={2}>{product.name}</Text>
-            <Text style={styles.horizontalProductUnit}>{product.unit}</Text>
+            {product.unit && product.unit.trim() && <Text style={styles.horizontalProductUnit}>{product.unit}</Text>}
             <View style={styles.horizontalProductPricing}>
               <View style={styles.horizontalPriceRow}>
                 <Text style={styles.horizontalProductPrice}>₹{product.price.toFixed(2)}</Text>
@@ -274,8 +274,8 @@ export default function HomeScreen() {
                       />
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                        <Text style={styles.productUnit}>{product.unit}</Text>
-                        <Text style={styles.productCategory}>{product.category}</Text>
+                        {product.unit && product.unit.trim() && <Text style={styles.productUnit}>{product.unit}</Text>}
+                        {product.category && product.category.trim() && <Text style={styles.productCategory}>{product.category}</Text>}
                         <View style={styles.productPricing}>
                           <Text style={styles.productPrice}>₹{product.price.toFixed(2)}</Text>
                           {product.discount > 0 && (

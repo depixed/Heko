@@ -209,9 +209,12 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
     await loadCategories();
   }, []);
 
-  // Reload products when active vendor changes (single mode)
+  // Reload products when active vendor changes (single mode) or mode changes
   useEffect(() => {
     if (mode === 'single') {
+      loadProducts();
+    } else if (mode === 'multi') {
+      // Reload all products when switching to multi-vendor mode
       loadProducts();
     }
   }, [activeVendorId, hasEligibleVendor, mode]);

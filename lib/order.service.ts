@@ -20,6 +20,9 @@ export interface CreateOrderData {
   userId: string;
   addressId: string;
   deliverySlotId: string; // NOW REQUIRED
+  deliveryDate?: string; // Date string (YYYY-MM-DD)
+  deliveryWindowStart?: string; // Time string (HH:MM:SS)
+  deliveryWindowEnd?: string; // Time string (HH:MM:SS)
   items: Array<{
     productId: string;
     productName: string;
@@ -34,7 +37,7 @@ export interface CreateOrderData {
   total: number;
   walletUsed: number;
   deliveryNotes?: string;
-  deliveryWindow?: string; // ISO string if provided
+  deliveryWindow?: string; // ISO string if provided (legacy)
   contactlessDelivery?: boolean;
 }
 
@@ -94,7 +97,10 @@ export const orderService = {
         order_number: orderNumber,
         user_id: orderData.userId,
         address_id: orderData.addressId,
-        delivery_slot_id: orderData.deliverySlotId, // NEW
+        delivery_slot_id: orderData.deliverySlotId,
+        delivery_date: orderData.deliveryDate || null,
+        delivery_window_start: orderData.deliveryWindowStart || null,
+        delivery_window_end: orderData.deliveryWindowEnd || null,
         status: 'placed',
         subtotal: orderData.subtotal,
         discount: orderData.discount,
@@ -121,11 +127,13 @@ export const orderService = {
         
         // Handle specific slot validation errors
         if (orderError?.message?.includes('SLOT_')) {
+          const extractedCode = this.extractSlotErrorCode(orderError.message);
+          const errorMessage = this.getSlotErrorMessage(extractedCode);
           return {
             success: false,
             error: {
-              code: this.extractSlotErrorCode(orderError.message),
-              message: this.getSlotErrorMessage(orderError.message)
+              code: extractedCode,
+              message: errorMessage
             }
           };
         }

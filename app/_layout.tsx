@@ -121,32 +121,77 @@ function RootLayoutNav() {
   );
 }
 
+// React Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Silently recover - don't show error UI to user
+      // Just log and continue
+      return this.props.children;
+    }
+    return this.props.children;
+  }
+}
+
 export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
+    
+    // Handle unhandled promise rejections
+    const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
+      console.error('[RootLayout] Unhandled promise rejection:', event.reason);
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('unhandledrejection', unhandledRejectionHandler);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('unhandledrejection', unhandledRejectionHandler);
+      }
+    };
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <AuthProvider>
-            <AddressProvider>
-              <VendorAssignmentProvider>
-                <ProductProvider>
-                  <BannerProvider>
-                    <OrderProvider>
-                      <NotificationProvider>
-                        <RootLayoutNav />
-                      </NotificationProvider>
-                    </OrderProvider>
-                  </BannerProvider>
-                </ProductProvider>
-              </VendorAssignmentProvider>
-            </AddressProvider>
-          </AuthProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <AuthProvider>
+              <AddressProvider>
+                <VendorAssignmentProvider>
+                  <ProductProvider>
+                    <BannerProvider>
+                      <OrderProvider>
+                        <NotificationProvider>
+                          <RootLayoutNav />
+                        </NotificationProvider>
+                      </OrderProvider>
+                    </BannerProvider>
+                  </ProductProvider>
+                </VendorAssignmentProvider>
+              </AddressProvider>
+            </AuthProvider>
+          </GestureHandlerRootView>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
