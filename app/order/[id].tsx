@@ -280,11 +280,9 @@ export default function OrderDetailsScreen() {
               </Text>
             </View>
             <Text style={styles.addressText}>
-              {order.user_addresses.address_line1}
-              {order.user_addresses.address_line2 ? `, ${order.user_addresses.address_line2}` : ''}
-              {order.user_addresses.landmark ? `, ${order.user_addresses.landmark}` : ''}
+              {[order.user_addresses.address_line1, order.user_addresses.address_line2, order.user_addresses.landmark].filter(Boolean).join(', ')}
               {'\n'}
-              {order.user_addresses.city}, {order.user_addresses.state} - {order.user_addresses.pincode}
+              {[order.user_addresses.city, order.user_addresses.state, order.user_addresses.pincode].filter(Boolean).join(' - ')}
             </Text>
           </View>
         )}

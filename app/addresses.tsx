@@ -211,7 +211,7 @@ export default function AddressesScreen() {
 
             <View style={styles.cardContent}>
               <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="tail">
-                {address.flat}, {address.area}, {address.city}
+                {[address.flat, address.area, address.city].filter(Boolean).join(', ')}
               </Text>
               <Text style={styles.nameText}>{address.name}</Text>
               <TouchableOpacity onPress={() => handleCall(address.phone)}>

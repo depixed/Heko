@@ -214,7 +214,10 @@ export default function CheckoutScreen() {
       const result = await orderService.createOrder({
         userId: user.id,
         addressId: defaultAddress.id,
-        deliverySlotId: selectedSlot.id, // NEW
+        deliverySlotId: selectedSlot.id,
+        deliveryDate: selectedSlot.date,
+        deliveryWindowStart: selectedSlot.start_time,
+        deliveryWindowEnd: selectedSlot.end_time,
         items: orderItems,
         subtotal: priceDetails.itemsTotal,
         discount: priceDetails.itemDiscount,
