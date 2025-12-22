@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     }),
   },
   brandText: {
-    color: Colors.text.primary,
+    color: Colors.text.inverse,
     fontSize: 18,
     fontWeight: '700' as const,
     letterSpacing: 0.5,

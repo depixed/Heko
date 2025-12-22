@@ -13,7 +13,7 @@ interface BannerCardProps {
   priority?: 'low' | 'normal' | 'high'; // Image loading priority for lazy loading
 }
 
-const BannerCard: React.FC<BannerCardProps> = ({
+const BannerCard: React.FC<BannerCardProps> = React.memo(({
   banner,
   onPress,
   onVisible,
@@ -90,13 +90,14 @@ const BannerCard: React.FC<BannerCardProps> = ({
       />
       
       {hasTags && (
-        <LinearGradient
-          colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)']}
-          locations={[0, 0.3, 0.6, 1]}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 0, y: 0.5 }}
-          style={styles.overlay}
-        >
+        // Gradient overlay - hidden for now, can be restored later
+        // <LinearGradient
+        //   colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)']}
+        //   locations={[0, 0.3, 0.6, 1]}
+        //   start={{ x: 0, y: 1 }}
+        //   end={{ x: 0, y: 0.5 }}
+        //   style={styles.overlay}
+        // >
           <View style={styles.overlayContent}>
             {banner.title && (
               <Text style={styles.title} numberOfLines={2}>
@@ -109,11 +110,11 @@ const BannerCard: React.FC<BannerCardProps> = ({
               </Text>
             )}
           </View>
-        </LinearGradient>
+        // </LinearGradient>
       )}
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -153,6 +154,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 16,
+    // Note: Gradient removed - text overlay still positioned at bottom
   },
   title: {
     fontSize: 20,

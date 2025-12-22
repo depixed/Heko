@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
   },
   productInfo: {
     padding: 12,
