@@ -14,7 +14,7 @@ export const MOCK_CATEGORIES: Category[] = [
 export const MOCK_BANNERS: Banner[] = [
   { id: '1', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', title: 'Fresh Vegetables', subtitle: 'Up to 30% off', action: 'category:1' },
   { id: '2', image: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=800', title: 'Dairy Essentials', subtitle: 'Get 2% cashback', action: 'category:2' },
-  { id: '3', image: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800', title: 'Refer & Earn', subtitle: '10% on every order', action: 'referral' },
+  { id: '3', image: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800', title: 'Refer & Earn', subtitle: 'Earn 10% real cash on every referral order.*', action: 'referral' },
 ];
 
 export const MOCK_PRODUCTS: Product[] = [

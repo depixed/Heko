@@ -81,10 +81,12 @@ const styles = StyleSheet.create({
   header: {
     height: 200,
     position: 'relative',
+    backgroundColor: Colors.background.primary,
   },
   categoryImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'contain',
   },
   headerOverlay: {
     position: 'absolute',
@@ -118,7 +120,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   subcategoryCard: {
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border.light,
@@ -129,7 +131,8 @@ const styles = StyleSheet.create({
   subcategoryImage: {
     width: 80,
     height: 80,
-    backgroundColor: Colors.background.tertiary,
+    backgroundColor: Colors.background.primary,
+    resizeMode: 'contain',
   },
   subcategoryContent: {
     flex: 1,

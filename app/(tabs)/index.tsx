@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Mic, Minus, Plus, ChevronRight } from 'lucide-react-native';
+import { Search, Minus, Plus, ChevronRight } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/contexts/ProductContext';
@@ -43,17 +43,62 @@ export default function HomeScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = useCallback((product: any) => {
     addToCart({ product, quantity: 1 });
-  };
+  }, [addToCart]);
 
-  // Get products by category
-  const getProductsByCategory = (categoryName: string) => {
-    return products.filter(p => p.category === categoryName);
-  };
+  // Get products by category - memoized to avoid re-filtering on every render
+  const productsByCategory = useMemo(() => {
+    const grouped: Record<string, Product[]> = {};
+    products.forEach(product => {
+      if (!grouped[product.category]) {
+        grouped[product.category] = [];
+      }
+      grouped[product.category].push(product);
+    });
+    return grouped;
+  }, [products]);
+
+  // Pre-calculate responsive widths - memoized to avoid recalculating on every render
+  const layoutDimensions = useMemo(() => {
+    const effectiveWidth = Math.min(screenWidth, 1200);
+    const isMobile = screenWidth <= 768;
+    
+    // Category card dimensions
+    const categoryMaxCardWidth = 140;
+    const categoryGridPadding = isMobile ? 32 : 64;
+    const categoryGap = 12;
+    const categoryNumColumns = isMobile ? 3 : 6;
+    const categoryCardWidth = isMobile
+      ? (screenWidth - categoryGridPadding - (categoryNumColumns - 1) * categoryGap) / categoryNumColumns
+      : Math.min(categoryMaxCardWidth, (effectiveWidth - categoryGridPadding - (categoryNumColumns - 1) * categoryGap) / categoryNumColumns);
+    
+    // Subcategory card dimensions
+    const subcategoryMaxCardWidth = 100;
+    let subcategoryNumColumns, subcategoryCardWidth;
+    if (screenWidth > 768) {
+      subcategoryNumColumns = 8;
+      subcategoryCardWidth = Math.min(subcategoryMaxCardWidth, (effectiveWidth - 64) / subcategoryNumColumns);
+    } else if (screenWidth > 600) {
+      subcategoryNumColumns = 5;
+      subcategoryCardWidth = (screenWidth - 48 - (subcategoryNumColumns - 1) * 8) / subcategoryNumColumns;
+    } else if (screenWidth > 400) {
+      subcategoryNumColumns = 4;
+      subcategoryCardWidth = (screenWidth - 48 - (subcategoryNumColumns - 1) * 8) / subcategoryNumColumns;
+    } else {
+      subcategoryNumColumns = 3;
+      subcategoryCardWidth = (screenWidth - 48 - (subcategoryNumColumns - 1) * 8) / subcategoryNumColumns;
+    }
+    
+    return {
+      categoryCardWidth,
+      subcategoryCardWidth,
+      horizontalProductCardWidth: 160,
+    };
+  }, [screenWidth]);
 
   // Render product card for horizontal carousel
-  const renderProductCard = (product: Product, cardWidth: number) => {
+  const renderProductCard = useCallback((product: Product, cardWidth: number) => {
     const cartItem = cart.find((item) => item.product.id === product.id);
     const qty = cartItem?.quantity || 0;
 
@@ -122,14 +167,14 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [cart, router, updateCartItem, handleAddToCart]);
 
   // Handle banner press - BannerCarousel will handle click tracking and deep links
-  const handleBannerPress = (banner: any) => {
+  const handleBannerPress = useCallback((banner: any) => {
     // BannerCarousel already handles deep link navigation and click tracking
     // This is just for backward compatibility if needed
     console.log('[HomeScreen] Banner pressed:', banner.id);
-  };
+  }, []);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -183,7 +228,7 @@ export default function HomeScreen() {
     setShowSearchResults(false);
   };
 
-  const getAddressDisplayText = () => {
+  const addressDisplayText = useMemo(() => {
     if (!defaultAddress) {
       return 'Add Address';
     }
@@ -194,7 +239,7 @@ export default function HomeScreen() {
     
     const area = defaultAddress.area || defaultAddress.city;
     return `${addressType} - ${area}`;
-  };
+  }, [defaultAddress]);
 
   return (
     <ResponsiveContainer>
@@ -203,7 +248,7 @@ export default function HomeScreen() {
           showBackButton={false} 
           showAddress={true}
           addressLabel="Deliver to"
-          addressValue={getAddressDisplayText()}
+          addressValue={addressDisplayText}
           onAddressPress={() => router.push('/addresses' as any)}
         />
 
@@ -211,26 +256,26 @@ export default function HomeScreen() {
         style={styles.content} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={21}
       >
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Search size={20} color={Colors.text.tertiary} />
+            <Search size={20} color={Colors.text.inverse} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search for products, categories..."
-              placeholderTextColor={Colors.text.tertiary}
+              placeholderTextColor={Colors.text.inverse}
               value={searchQuery}
               onChangeText={handleSearch}
               returnKeyType="search"
               onSubmitEditing={() => handleSearch(searchQuery)}
             />
-            {searchQuery.length > 0 ? (
+            {searchQuery.length > 0 && (
               <TouchableOpacity onPress={clearSearch}>
                 <Text style={styles.clearButton}>✕</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity>
-                <Mic size={20} color={Colors.text.tertiary} />
               </TouchableOpacity>
             )}
           </View>
@@ -331,25 +376,22 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Shop by Category</Text>
               <View style={styles.categoriesGrid}>
-                {categories.map((category) => {
-                  const cardWidth = (screenWidth - 48) / 3; // 3 columns with padding
-                  return (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[styles.categoryCard, { width: cardWidth }]}
-                      onPress={() => router.push(`/category/${category.id}` as any)}
-                    >
-                      <View style={styles.categoryImageContainer}>
-                        <Image 
-                          source={{ uri: category.image }} 
-                          style={styles.categoryImage}
-                          resizeMode="contain"
-                        />
-                      </View>
-                      <Text style={styles.categoryName} numberOfLines={2}>{category.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[styles.categoryCard, { width: layoutDimensions.categoryCardWidth }]}
+                    onPress={() => router.push(`/category/${category.id}` as any)}
+                  >
+                    <View style={styles.categoryImageContainer}>
+                      <Image 
+                        source={{ uri: category.image }} 
+                        style={styles.categoryImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <Text style={styles.categoryName} numberOfLines={2}>{category.name}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
@@ -358,26 +400,22 @@ export default function HomeScreen() {
               <Text style={styles.sectionTitle}>Shop by Subcategory</Text>
               <View style={styles.subcategoriesGrid}>
                 {categories.flatMap((category) =>
-                  category.subcategories.map((subcategory) => {
-                    const numColumns = screenWidth > 600 ? 5 : screenWidth > 400 ? 4 : 3;
-                    const cardWidth = (screenWidth - 48 - (numColumns - 1) * 8) / numColumns;
-                    return (
-                      <TouchableOpacity
-                        key={subcategory.id}
-                        style={[styles.subcategoryCard, { width: cardWidth }]}
-                        onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
-                      >
-                        <View style={styles.subcategoryImageContainer}>
-                          <Image 
-                            source={{ uri: subcategory.image }} 
-                            style={styles.subcategoryImage}
-                            resizeMode="contain"
-                          />
-                        </View>
-                        <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })
+                  category.subcategories.map((subcategory) => (
+                    <TouchableOpacity
+                      key={subcategory.id}
+                      style={[styles.subcategoryCard, { width: layoutDimensions.subcategoryCardWidth }]}
+                      onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
+                    >
+                      <View style={styles.subcategoryImageContainer}>
+                        <Image 
+                          source={{ uri: subcategory.image }} 
+                          style={styles.subcategoryImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
+                    </TouchableOpacity>
+                  ))
                 )}
               </View>
             </View>
@@ -390,7 +428,7 @@ export default function HomeScreen() {
                 <View style={styles.referralContent}>
                   <Text style={styles.referralTitle}>Refer & Earn</Text>
                   <Text style={styles.referralSubtitle}>
-                    Get {APP_CONFIG.REFERRAL.COMMISSION_PERCENTAGE}% on every order
+                    Earn 10% real cash on every referral order.*
                   </Text>
                 </View>
                 <Text style={styles.referralArrow}>→</Text>
@@ -399,10 +437,8 @@ export default function HomeScreen() {
 
             {/* Category-based product sections */}
             {categories.map((category) => {
-              const categoryProducts = getProductsByCategory(category.name);
+              const categoryProducts = productsByCategory[category.name] || [];
               if (categoryProducts.length === 0) return null;
-
-              const cardWidth = 160;
               
               return (
                 <View key={category.id} style={styles.section}>
@@ -421,8 +457,9 @@ export default function HomeScreen() {
                     showsHorizontalScrollIndicator={false}
                     style={styles.horizontalScroll}
                     contentContainerStyle={styles.horizontalScrollContent}
+                    removeClippedSubviews={true}
                   >
-                    {categoryProducts.map((product) => renderProductCard(product, cardWidth))}
+                    {categoryProducts.map((product) => renderProductCard(product, layoutDimensions.horizontalProductCardWidth))}
                   </ScrollView>
                 </View>
               );
@@ -459,11 +496,11 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: Colors.text.primary,
+    color: Colors.text.inverse,
   },
   clearButton: {
     fontSize: 18,
-    color: Colors.text.tertiary,
+    color: Colors.text.inverse,
     fontWeight: '600' as const,
   },
   section: {
@@ -480,7 +517,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.text.primary,
-    flex: 1,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   seeAllButton: {
     flexDirection: 'row',
@@ -502,8 +540,9 @@ const styles = StyleSheet.create({
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 12,
+    justifyContent: 'flex-start',
   },
   categoryCard: {
     marginBottom: 12,
@@ -536,7 +575,7 @@ const styles = StyleSheet.create({
   subcategoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 8,
   },
   subcategoryCard: {
