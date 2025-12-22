@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChevronLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { authService } from '@/lib/auth.service';
 
@@ -43,6 +44,16 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.headerBar}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <ChevronLeft size={24} color={Colors.brand.primary} />
+        </TouchableOpacity>
+        <Text style={styles.logoText}>HEKO</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Create Account</Text>
@@ -116,6 +127,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.primary,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+    backgroundColor: Colors.background.primary,
+    minHeight: 56,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  logoText: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: Colors.brand.primary,
+    letterSpacing: 2,
+  },
+  headerSpacer: {
+    width: 40,
   },
   content: {
     flex: 1,

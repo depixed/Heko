@@ -35,7 +35,10 @@
         "READ_MEDIA_AUDIO",
         "READ_MEDIA_VISUAL_USER_SELECTED",
         "ACCESS_MEDIA_LOCATION",
-        "INTERNET"
+        "INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_MEDIA_LOCATION"
       ]
     },
     "web": {
@@ -74,6 +77,15 @@
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": "https://rork.com/"
+      },
+      "eas": {
+        "projectId": "feaf2a15-755e-4b8a-afac-fb92ca912f30"
+      }
+    },
+    "owner": "depixed"
   }
 }

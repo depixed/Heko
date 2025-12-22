@@ -21,7 +21,7 @@ interface BannerCarouselProps {
 
 const BANNER_SPACING = 16;
 
-const BannerCarousel: React.FC<BannerCarouselProps> = ({
+const BannerCarousel: React.FC<BannerCarouselProps> = React.memo(({
   banners,
   onBannerPress,
   onBannerVisible,
@@ -163,6 +163,12 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     return null;
   }
 
+  // Center single banner on mobile, show carousel for multiple
+  const isSingleBanner = banners.length === 1;
+  const scrollContentStyle = isSingleBanner 
+    ? [styles.scrollContent, styles.scrollContentCentered]
+    : styles.scrollContent;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -171,9 +177,10 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
         pagingEnabled={false}
         showsHorizontalScrollIndicator={false}
         snapToInterval={BANNER_ITEM_WIDTH}
-        snapToAlignment="start"
+        snapToAlignment={isSingleBanner ? "center" : "start"}
         decelerationRate="fast"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={scrollContentStyle}
+        scrollEnabled={!isSingleBanner}
         onScroll={handleScroll}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}
@@ -217,15 +224,20 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
     marginBottom: 24,
+    alignItems: 'center', // Center the carousel container
   },
   scrollContent: {
     paddingLeft: 16,
     paddingRight: 16,
+  },
+  scrollContentCentered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pagination: {
     flexDirection: 'row',

@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
   categoryImage: {
     width: 120,
     height: 120,
+    backgroundColor: Colors.background.primary,
   },
   categoryInfo: {
     flex: 1,
