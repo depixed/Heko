@@ -188,7 +188,7 @@ export default function InstallPrompt() {
             <Text style={styles.title}>Install HEKO App</Text>
             <Text style={styles.description}>
               {isIOS 
-                ? 'Tap the Share button (□↑) at the bottom and select "Add to Home Screen"'
+                ? 'Tap the Share button at the bottom of Safari, then select "Add to Home Screen"'
                 : isAndroid
                   ? deferredPrompt
                     ? 'Tap "Add" below to install HEKO on your home screen'
