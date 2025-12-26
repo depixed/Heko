@@ -46,7 +46,19 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "HEKO",
+      "shortName": "HEKO",
+      "description": "Fresh groceries delivered to your doorstep. Shop from a wide range of products including fruits, vegetables, dairy, and more.",
+      "lang": "en",
+      "themeColor": "#000000",
+      "backgroundColor": "#ffffff",
+      "startUrl": "/",
+      "display": "standalone",
+      "orientation": "portrait",
+      "preferRelatedApplications": false
     },
     "plugins": [
       [
