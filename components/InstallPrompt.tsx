@@ -43,6 +43,7 @@ export default function InstallPrompt() {
     const initializePrompt = async () => {
       const canShow = await checkIfDismissed();
       if (!canShow) {
+        console.log('[InstallPrompt] Prompt dismissed or already installed');
         return;
       }
 
@@ -54,6 +55,7 @@ export default function InstallPrompt() {
       setIsStandalone(standalone);
 
       if (standalone) {
+        console.log('[InstallPrompt] Running as standalone app, not showing prompt');
         // Mark as installed
         await AsyncStorage.setItem(PROMPT_INSTALLED_KEY, 'true');
         return;
@@ -63,24 +65,34 @@ export default function InstallPrompt() {
       const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
       setIsIOS(ios);
 
-      if (ios) {
-        // For iOS, show prompt after a delay (can't detect standalone installation)
-        setTimeout(() => {
-          setShowPrompt(true);
-        }, 3000); // Show after 3 seconds
-      }
+      // Detect Android
+      const android = /Android/.test(navigator.userAgent);
+      
+      console.log('[InstallPrompt] Platform detection:', { ios, android, standalone });
+
+      // Show prompt for both iOS and Android after a delay
+      // For Android, we'll show it even if beforeinstallprompt doesn't fire
+      setTimeout(() => {
+        console.log('[InstallPrompt] Showing prompt after delay');
+        setShowPrompt(true);
+      }, 3000); // Show after 3 seconds
     };
 
     // Listen for beforeinstallprompt event (Android, Desktop)
+    // This event may or may not fire, so we show the prompt anyway
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('[InstallPrompt] beforeinstallprompt event fired');
       e.preventDefault();
       const installEvent = e as BeforeInstallPromptEvent;
       setDeferredPrompt(installEvent);
       
-      // Show prompt after a delay
-      setTimeout(() => {
-        setShowPrompt(true);
-      }, 3000);
+      // If event fires, we already show the prompt in initializePrompt
+      // But we can show it immediately if needed
+      if (!showPrompt) {
+        setTimeout(() => {
+          setShowPrompt(true);
+        }, 1000);
+      }
     };
 
     // Listen for app installed event
@@ -108,27 +120,34 @@ export default function InstallPrompt() {
       return;
     }
 
-    if (!deferredPrompt) {
-      return;
-    }
-
-    try {
-      // Show native install prompt
-      await deferredPrompt.prompt();
-      
-      // Wait for user choice
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`[InstallPrompt] User response: ${outcome}`);
-      
-      if (outcome === 'accepted') {
-        await AsyncStorage.setItem(PROMPT_INSTALLED_KEY, 'true');
+    // If we have the deferred prompt, use it
+    if (deferredPrompt) {
+      try {
+        console.log('[InstallPrompt] Showing native install prompt');
+        // Show native install prompt
+        await deferredPrompt.prompt();
+        
+        // Wait for user choice
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`[InstallPrompt] User response: ${outcome}`);
+        
+        if (outcome === 'accepted') {
+          await AsyncStorage.setItem(PROMPT_INSTALLED_KEY, 'true');
+        }
+        
+        // Clear deferred prompt
+        setDeferredPrompt(null);
+        setShowPrompt(false);
+      } catch (error) {
+        console.error('[InstallPrompt] Error showing install prompt:', error);
+        // Fall through to manual instructions
       }
-      
-      // Clear deferred prompt
-      setDeferredPrompt(null);
-      setShowPrompt(false);
-    } catch (error) {
-      console.error('[InstallPrompt] Error showing install prompt:', error);
+    } else {
+      // Fallback: Show instructions for manual installation
+      console.log('[InstallPrompt] No deferred prompt, showing manual instructions');
+      // On Android Chrome, user can manually add via menu
+      // We'll keep the prompt visible with instructions
+      alert('To install HEKO:\n\n1. Tap the menu (⋮) in Chrome\n2. Select "Install app" or "Add to Home screen"\n3. Tap "Install"');
     }
   };
 
@@ -166,7 +185,9 @@ export default function InstallPrompt() {
             <Text style={styles.description}>
               {isIOS 
                 ? 'Tap the Share button and select "Add to Home Screen"'
-                : 'Add HEKO to your home screen for quick access and a better experience'
+                : deferredPrompt
+                  ? 'Add HEKO to your home screen for quick access and a better experience'
+                  : 'Tap the menu (⋮) in Chrome and select "Install app" or "Add to Home screen"'
               }
             </Text>
           </View>
