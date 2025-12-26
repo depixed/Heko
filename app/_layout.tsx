@@ -15,6 +15,7 @@ import { VendorAssignmentProvider } from "@/contexts/VendorAssignmentContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { useBannerPrefetch } from "@/hooks/useBannerPrefetch";
 import TopNav from "@/components/TopNav";
+import InstallPrompt from "@/components/InstallPrompt";
 import { handleDeepLink } from "@/utils/deepLinkRouter";
 
 SplashScreen.preventAutoHideAsync();
@@ -119,6 +120,7 @@ function RootLayoutNav() {
       <Stack.Screen name="category/[id]" options={{ title: "" }} />
       <Stack.Screen name="subcategory/[categoryId]/[subcategory]" options={{ title: "" }} />
     </Stack>
+    <InstallPrompt />
   );
 }
 
