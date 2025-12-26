@@ -9,6 +9,7 @@ import { useProducts } from '@/contexts/ProductContext';
 import { useBanners } from '@/hooks/useBanners';
 import { useAddresses } from '@/contexts/AddressContext';
 import { useVendorAssignment } from '@/contexts/VendorAssignmentContext';
+import { useLocation } from '@/contexts/LocationContext';
 import { APP_CONFIG } from '@/constants/config';
 import type { Product } from '@/types';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
@@ -16,6 +17,7 @@ import TopNav from '@/components/TopNav';
 import BannerSection from '@/components/BannerSection';
 import { NoVendorAvailable } from '@/components/NoVendorAvailable';
 import ProductGridCarousel from '@/components/ProductGridCarousel';
+import { CategoriesGridSkeleton, SubcategoriesGridSkeleton, ProductsCarouselSkeleton } from '@/components/LoadingSkeleton';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function HomeScreen() {
   const { categories, products, isLoadingCategories, isLoadingProducts, searchProducts } = useProducts();
   const { getDefaultAddress } = useAddresses();
   const { mode, hasEligibleVendor, isLoading: isLoadingVendor } = useVendorAssignment();
+  const { city: detectedCity, area: detectedArea, isLoading: isLoadingLocation } = useLocation();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   
@@ -103,12 +106,12 @@ export default function HomeScreen() {
     const baseCardWidth = (screenWidth - horizontalPadding - totalGaps) / productsPerRow;
     
     // Apply different multipliers for mobile vs desktop
-    // Desktop: 40% increase, Mobile: 25% increase
-    const widthMultiplier = isMobile ? 1.25 : 1.4;
+    // Desktop: 70% increase for better visibility, Mobile: 25% increase
+    const widthMultiplier = isMobile ? 1.25 : 1.7;
     const horizontalProductCardWidth = baseCardWidth * widthMultiplier;
     
     // Different max widths for mobile vs desktop
-    const maxCardWidth = isMobile ? 200 : 252; // Mobile: ~160 * 1.25, Desktop: 180 * 1.4
+    const maxCardWidth = isMobile ? 200 : 320; // Mobile: ~160 * 1.25, Desktop: ~188 * 1.7
     
     return {
       categoryCardWidth,
@@ -249,17 +252,32 @@ export default function HomeScreen() {
   };
 
   const addressDisplayText = useMemo(() => {
-    if (!defaultAddress) {
-      return 'Add Address';
+    // Priority: GPS-detected city > Saved address > Fallback
+    if (detectedCity) {
+      // Show GPS-detected city and area
+      if (detectedArea) {
+        return `${detectedArea}, ${detectedCity}`;
+      }
+      return detectedCity;
     }
     
-    const addressType = defaultAddress.type === 'other' && defaultAddress.otherLabel 
-      ? defaultAddress.otherLabel 
-      : defaultAddress.type.charAt(0).toUpperCase() + defaultAddress.type.slice(1);
+    // Fallback to saved address
+    if (defaultAddress) {
+      const addressType = defaultAddress.type === 'other' && defaultAddress.otherLabel 
+        ? defaultAddress.otherLabel 
+        : defaultAddress.type.charAt(0).toUpperCase() + defaultAddress.type.slice(1);
+      
+      const area = defaultAddress.area || defaultAddress.city;
+      return `${addressType} - ${area}`;
+    }
     
-    const area = defaultAddress.area || defaultAddress.city;
-    return `${addressType} - ${area}`;
-  }, [defaultAddress]);
+    // Show loading state while detecting location
+    if (isLoadingLocation) {
+      return 'Detecting location...';
+    }
+    
+    return 'Add Address';
+  }, [detectedCity, detectedArea, defaultAddress, isLoadingLocation]);
 
   // Show "No Vendor Available" message in single mode when no eligible vendor
   if (mode === 'single' && !hasEligibleVendor && !isLoadingVendor) {
@@ -402,52 +420,60 @@ export default function HomeScreen() {
             />
 
             {/* Shop by Category Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Shop by Category</Text>
-              <View style={styles.categoriesGrid}>
-                {categories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[styles.categoryCard, { width: layoutDimensions.categoryCardWidth }]}
-                    onPress={() => router.push(`/category/${category.id}` as any)}
-                  >
-                    <View style={styles.categoryImageContainer}>
-                      <Image 
-                        source={{ uri: category.image }} 
-                        style={styles.categoryImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                    <Text style={styles.categoryName} numberOfLines={2}>{category.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Shop by Subcategory Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Shop by Subcategory</Text>
-              <View style={styles.subcategoriesGrid}>
-                {categories.flatMap((category) =>
-                  category.subcategories.map((subcategory) => (
+            {isLoadingCategories ? (
+              <CategoriesGridSkeleton />
+            ) : (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Shop by Category</Text>
+                <View style={styles.categoriesGrid}>
+                  {categories.map((category) => (
                     <TouchableOpacity
-                      key={subcategory.id}
-                      style={[styles.subcategoryCard, { width: layoutDimensions.subcategoryCardWidth }]}
-                      onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
+                      key={category.id}
+                      style={[styles.categoryCard, { width: layoutDimensions.categoryCardWidth }]}
+                      onPress={() => router.push(`/category/${category.id}` as any)}
                     >
-                      <View style={styles.subcategoryImageContainer}>
+                      <View style={styles.categoryImageContainer}>
                         <Image 
-                          source={{ uri: subcategory.image }} 
-                          style={styles.subcategoryImage}
+                          source={{ uri: category.image }} 
+                          style={styles.categoryImage}
                           resizeMode="contain"
                         />
                       </View>
-                      <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
+                      <Text style={styles.categoryName} numberOfLines={2}>{category.name}</Text>
                     </TouchableOpacity>
-                  ))
-                )}
+                  ))}
+                </View>
               </View>
-            </View>
+            )}
+
+            {/* Shop by Subcategory Section */}
+            {isLoadingCategories ? (
+              <SubcategoriesGridSkeleton />
+            ) : (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Shop by Subcategory</Text>
+                <View style={styles.subcategoriesGrid}>
+                  {categories.flatMap((category) =>
+                    category.subcategories.map((subcategory) => (
+                      <TouchableOpacity
+                        key={subcategory.id}
+                        style={[styles.subcategoryCard, { width: layoutDimensions.subcategoryCardWidth }]}
+                        onPress={() => router.push(`/subcategory/${category.id}/${encodeURIComponent(subcategory.name)}` as any)}
+                      >
+                        <View style={styles.subcategoryImageContainer}>
+                          <Image 
+                            source={{ uri: subcategory.image }} 
+                            style={styles.subcategoryImage}
+                            resizeMode="contain"
+                          />
+                        </View>
+                        <Text style={styles.subcategoryName} numberOfLines={2}>{subcategory.name}</Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+              </View>
+            )}
 
             {APP_CONFIG.REFERRAL.ENABLED && (
               <TouchableOpacity
@@ -465,33 +491,41 @@ export default function HomeScreen() {
             )}
 
             {/* Category-based product sections */}
-            {categories.map((category) => {
-              const categoryProducts = productsByCategory[category.name] || [];
-              if (categoryProducts.length === 0) return null;
-              
-              return (
-                <View key={category.id} style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>{category.name}</Text>
-                    <TouchableOpacity
-                      style={styles.seeAllButton}
-                      onPress={() => router.push(`/category/${category.id}` as any)}
-                    >
-                      <Text style={styles.seeAllText}>See All</Text>
-                      <ChevronRight size={16} color={Colors.brand.primary} />
-                    </TouchableOpacity>
+            {isLoadingProducts || isLoadingCategories ? (
+              <>
+                <ProductsCarouselSkeleton cardWidth={layoutDimensions.horizontalProductCardWidth} />
+                <ProductsCarouselSkeleton cardWidth={layoutDimensions.horizontalProductCardWidth} />
+                <ProductsCarouselSkeleton cardWidth={layoutDimensions.horizontalProductCardWidth} />
+              </>
+            ) : (
+              categories.map((category) => {
+                const categoryProducts = productsByCategory[category.name] || [];
+                if (categoryProducts.length === 0) return null;
+                
+                return (
+                  <View key={category.id} style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>{category.name}</Text>
+                      <TouchableOpacity
+                        style={styles.seeAllButton}
+                        onPress={() => router.push(`/category/${category.id}` as any)}
+                      >
+                        <Text style={styles.seeAllText}>See All</Text>
+                        <ChevronRight size={16} color={Colors.brand.primary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ProductGridCarousel
+                      products={categoryProducts}
+                      renderProductCard={renderProductCard}
+                      cardWidth={layoutDimensions.horizontalProductCardWidth}
+                      productsPerRow={10}
+                      initialProductsCount={20}
+                      loadMoreChunkSize={20}
+                    />
                   </View>
-                  <ProductGridCarousel
-                    products={categoryProducts}
-                    renderProductCard={renderProductCard}
-                    cardWidth={layoutDimensions.horizontalProductCardWidth}
-                    productsPerRow={10}
-                    initialProductsCount={20}
-                    loadMoreChunkSize={20}
-                  />
-                </View>
-              );
-            })}
+                );
+              })
+            )}
           </>
         )}
       </ScrollView>

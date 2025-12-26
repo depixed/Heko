@@ -22,9 +22,8 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
       console.log('[ProductContext] Loading categories');
       const result = await catalogService.getCategories();
       if (result.success && result.data) {
-        const appCategories: Category[] = [];
-        
-        for (const cat of result.data) {
+        // Load all categories with subcategories in parallel for better performance
+        const categoryPromises = result.data.map(async (cat) => {
           const subsResult = await catalogService.getSubcategories(cat.id);
           const subcategories: Subcategory[] = subsResult.success && subsResult.data 
             ? subsResult.data.map(sub => ({
@@ -34,14 +33,15 @@ export const [ProductProvider, useProducts] = createContextHook(() => {
               }))
             : [];
           
-          appCategories.push({
+          return {
             id: cat.id,
             name: cat.name,
             image: cat.image || 'https://via.placeholder.com/150',
             subcategories,
-          });
-        }
+          };
+        });
         
+        const appCategories = await Promise.all(categoryPromises);
         setCategories(appCategories);
         console.log('[ProductContext] Categories loaded:', appCategories.length);
       }

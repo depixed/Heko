@@ -12,6 +12,7 @@ import { ProductProvider } from "@/contexts/ProductContext";
 import { OrderProvider } from "@/contexts/OrderContext";
 import { BannerProvider } from "@/contexts/BannerContext";
 import { VendorAssignmentProvider } from "@/contexts/VendorAssignmentContext";
+import { LocationProvider } from "@/contexts/LocationContext";
 import { useBannerPrefetch } from "@/hooks/useBannerPrefetch";
 import TopNav from "@/components/TopNav";
 import { handleDeepLink } from "@/utils/deepLinkRouter";
@@ -176,17 +177,19 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
               <AddressProvider>
-                <VendorAssignmentProvider>
-                  <ProductProvider>
-                    <BannerProvider>
-                      <OrderProvider>
-                        <NotificationProvider>
-                          <RootLayoutNav />
-                        </NotificationProvider>
-                      </OrderProvider>
-                    </BannerProvider>
-                  </ProductProvider>
-                </VendorAssignmentProvider>
+                <LocationProvider>
+                  <VendorAssignmentProvider>
+                    <ProductProvider>
+                      <BannerProvider>
+                        <OrderProvider>
+                          <NotificationProvider>
+                            <RootLayoutNav />
+                          </NotificationProvider>
+                        </OrderProvider>
+                      </BannerProvider>
+                    </ProductProvider>
+                  </VendorAssignmentProvider>
+                </LocationProvider>
               </AddressProvider>
             </AuthProvider>
           </GestureHandlerRootView>
