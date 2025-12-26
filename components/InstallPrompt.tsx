@@ -17,6 +17,7 @@ export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     // Only run on web
@@ -67,8 +68,11 @@ export default function InstallPrompt() {
 
       // Detect Android
       const android = /Android/.test(navigator.userAgent);
+      setIsAndroid(android);
       
       console.log('[InstallPrompt] Platform detection:', { ios, android, standalone });
+      console.log('[InstallPrompt] Service Worker support:', 'serviceWorker' in navigator);
+      console.log('[InstallPrompt] Manifest link:', document.querySelector('link[rel="manifest"]')?.getAttribute('href'));
 
       // Show prompt for both iOS and Android after a delay
       // For Android, we'll show it even if beforeinstallprompt doesn't fire
@@ -143,11 +147,11 @@ export default function InstallPrompt() {
         // Fall through to manual instructions
       }
     } else {
-      // Fallback: Show instructions for manual installation
-      console.log('[InstallPrompt] No deferred prompt, showing manual instructions');
-      // On Android Chrome, user can manually add via menu
-      // We'll keep the prompt visible with instructions
-      alert('To install HEKO:\n\n1. Tap the menu (⋮) in Chrome\n2. Select "Install app" or "Add to Home screen"\n3. Tap "Install"');
+      // Fallback: Cannot programmatically open Chrome menu
+      // We'll keep showing the instructions in the prompt
+      console.log('[InstallPrompt] No deferred prompt available - showing manual instructions');
+      // The prompt already shows instructions, so we don't need to do anything
+      // Just log for debugging
     }
   };
 
@@ -184,15 +188,17 @@ export default function InstallPrompt() {
             <Text style={styles.title}>Install HEKO App</Text>
             <Text style={styles.description}>
               {isIOS 
-                ? 'Tap the Share button and select "Add to Home Screen"'
-                : deferredPrompt
-                  ? 'Add HEKO to your home screen for quick access and a better experience'
-                  : 'Tap the menu (⋮) in Chrome and select "Install app" or "Add to Home screen"'
+                ? 'Tap the Share button (□↑) at the bottom and select "Add to Home Screen"'
+                : isAndroid
+                  ? deferredPrompt
+                    ? 'Tap "Add" below to install HEKO on your home screen'
+                    : 'To install:\n1. Tap Chrome menu (⋮) at top right\n2. Look for "Install app" or "Add to Home screen"\n\nNote: If the option is missing, Chrome may have dismissed it. Try:\n• Refreshing the page\n• Clearing Chrome cache\n• Visiting in incognito mode'
+                  : 'Add HEKO to your home screen for quick access and a better experience'
               }
             </Text>
           </View>
 
-          {!isIOS && (
+          {!isIOS && deferredPrompt && (
             <TouchableOpacity 
               style={styles.installButton}
               onPress={handleInstall}
@@ -272,9 +278,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   description: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text.primary,
-    lineHeight: 20,
+    lineHeight: 18,
     letterSpacing: -0.2,
   },
   installButton: {
