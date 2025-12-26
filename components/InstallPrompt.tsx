@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
-import { X, Download, Share } from 'lucide-react-native';
+import { X, Download } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -171,29 +171,22 @@ export default function InstallPrompt() {
             </Text>
           </View>
 
-          <View style={styles.actions}>
-            {isIOS ? (
-              <View style={styles.iosInstructions}>
-                <Share size={20} color={Colors.brand.primary} />
-                <Text style={styles.iosText}>Tap Share, then "Add to Home Screen"</Text>
-              </View>
-            ) : (
-              <TouchableOpacity 
-                style={styles.installButton}
-                onPress={handleInstall}
-              >
-                <Download size={18} color={Colors.text.inverse} />
-                <Text style={styles.installButtonText}>Add to Home Screen</Text>
-              </TouchableOpacity>
-            )}
-            
+          {!isIOS && (
             <TouchableOpacity 
-              style={styles.dismissButton}
-              onPress={handleDismiss}
+              style={styles.installButton}
+              onPress={handleInstall}
             >
-              <X size={20} color={Colors.text.tertiary} />
+              <Download size={18} color={Colors.text.inverse} />
+              <Text style={styles.installButtonText}>Add</Text>
             </TouchableOpacity>
-          </View>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.dismissButton}
+            onPress={handleDismiss}
+          >
+            <X size={20} color={Colors.text.tertiary} />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -210,47 +203,37 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none' as any,
   },
   prompt: {
-    backgroundColor: Colors.background.primary,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
+    backgroundColor: '#F5F5F0', // Light beige background
+    borderTopWidth: 0,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 16,
+    paddingBottom: 20,
     ...Platform.select({
       web: {
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
       },
       default: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 8,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
       },
     }),
   },
   content: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 60,
+    height: 60,
+    borderRadius: 13,
     overflow: 'hidden',
-    backgroundColor: Colors.background.secondary,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-      },
-    }),
+    backgroundColor: '#F5F5F0',
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   icon: {
     width: '100%',
@@ -258,31 +241,30 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
+    paddingTop: 2,
   },
   title: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700' as const,
     color: Colors.text.primary,
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   description: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    lineHeight: 18,
-  },
-  actions: {
-    flexDirection: 'column',
-    gap: 8,
-    alignItems: 'flex-end',
+    fontSize: 14,
+    color: Colors.text.primary,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   installButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: Colors.brand.primary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
+    marginTop: 2,
     ...Platform.select({
       web: {
         cursor: 'pointer',
@@ -295,26 +277,13 @@ const styles = StyleSheet.create({
     color: Colors.text.inverse,
   },
   dismissButton: {
-    padding: 4,
+    padding: 6,
+    marginTop: -2,
     ...Platform.select({
       web: {
         cursor: 'pointer',
       },
     }),
-  },
-  iosInstructions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.background.secondary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  iosText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.brand.primary,
   },
 });
 
