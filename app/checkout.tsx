@@ -9,15 +9,17 @@ import {
   Alert,
   Platform,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { ChevronLeft, ChevronDown, ChevronUp, Home, Briefcase, MapPin } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAddresses } from '@/contexts/AddressContext';
 import { orderService } from '@/lib/order.service';
+import { slotService, type TimeSlot, type DateSlots } from '@/lib/slot.service';
 
 type PaymentMethod = 'cash' | 'upi';
 
@@ -38,6 +40,13 @@ export default function CheckoutScreen() {
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [contactlessDelivery, setContactlessDelivery] = useState(false);
   const [promoExpanded, setPromoExpanded] = useState(false);
+
+  // Delivery slot selection state
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<DateSlots[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(true);
+  const [slotError, setSlotError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   // Ensure component is mounted before navigation (fixes web refresh issue)
   useEffect(() => {
@@ -88,6 +97,61 @@ export default function CheckoutScreen() {
   const finalPayable = Math.max(0, subtotal - actualApplied);
   const totalSavings = priceDetails.itemDiscount + actualApplied;
 
+  // Load delivery slots
+  async function loadSlots() {
+    setIsLoadingSlots(true);
+    setSlotError(null);
+
+    try {
+      const result = await slotService.getAvailableSlots();
+      
+      console.log('[CHECKOUT] Slot loading result:', result);
+
+      if (result.success && result.data) {
+        console.log('[CHECKOUT] Slots loaded successfully:', result.data.dates.length, 'dates');
+        setAvailableSlots(result.data.dates);
+        
+        // Auto-select first date with slots
+        const firstDateWithSlots = result.data.dates.find(d => d.hasSlots);
+        if (firstDateWithSlots) {
+          setSelectedDate(firstDateWithSlots.date);
+          
+          // Auto-select first available slot
+          const firstAvailableSlot = firstDateWithSlots.slots.find(s => s.is_selectable);
+          if (firstAvailableSlot) {
+            setSelectedSlot(firstAvailableSlot);
+          }
+        } else {
+          console.warn('[CHECKOUT] No dates with slots found');
+        }
+      } else {
+        console.error('[CHECKOUT] Failed to load slots:', result.error);
+        setSlotError(result.error || 'Failed to load delivery slots');
+      }
+    } catch (error) {
+      console.error('[CHECKOUT] Exception loading slots:', error);
+      setSlotError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }
+
+  // Load slots on mount
+  useEffect(() => {
+    loadSlots();
+  }, []);
+
+  // Handle slot selection
+  function handleSlotSelect(slot: TimeSlot) {
+    setSelectedSlot(slot);
+  }
+
+  // Refresh slots handler
+  const refreshSlots = useCallback(() => {
+    loadSlots();
+    setSelectedSlot(null); // Clear selection on refresh
+  }, []);
+
   const handleActualWalletToggle = (value: boolean) => {
     setActualWalletApplied(value);
     if (!value) {
@@ -114,6 +178,15 @@ export default function CheckoutScreen() {
   };
 
   const handlePlaceOrder = async () => {
+    // Validate slot selection
+    if (!selectedSlot) {
+      Alert.alert(
+        'Delivery Slot Required',
+        'Please select a delivery time slot before placing your order.'
+      );
+      return;
+    }
+
     if (!user?.id || !defaultAddress) {
       Alert.alert('Error', 'Please select a delivery address');
       return;
@@ -141,6 +214,10 @@ export default function CheckoutScreen() {
       const result = await orderService.createOrder({
         userId: user.id,
         addressId: defaultAddress.id,
+        deliverySlotId: selectedSlot.id,
+        deliveryDate: selectedSlot.date,
+        deliveryWindowStart: selectedSlot.start_time,
+        deliveryWindowEnd: selectedSlot.end_time,
         items: orderItems,
         subtotal: priceDetails.itemsTotal,
         discount: priceDetails.itemDiscount,
@@ -162,9 +239,7 @@ export default function CheckoutScreen() {
           // On mobile, show alert with options
           Alert.alert(
             'Order Placed',
-            `Your order has been placed successfully!\n\nOrder #: ${result.data.order_number}\nTotal: ₹${finalPayable.toFixed(2)}\nPayment: ${
-              paymentMethod === 'cash' ? 'Cash' : 'UPI'
-            } at delivery`,
+            `Your order has been placed successfully!\n\nOrder #: ${result.data.order_number}\nDelivery: ${slotService.formatFullDate(selectedSlot.date)}, ${selectedSlot.display_label}`,
             [
               {
                 text: 'View Order',
@@ -178,7 +253,18 @@ export default function CheckoutScreen() {
           );
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to place order. Please try again.');
+        // Handle slot validation errors
+        if (result.error?.code && result.error.code.startsWith('SLOT_')) {
+          Alert.alert(
+            'Slot Unavailable',
+            result.error.message,
+            [
+              { text: 'Choose Another Slot', onPress: refreshSlots }
+            ]
+          );
+        } else {
+          Alert.alert('Error', result.error?.message || 'Failed to place order. Please try again.');
+        }
       }
     } catch (error) {
       console.error('[Checkout] Error placing order:', error);
@@ -251,6 +337,105 @@ export default function CheckoutScreen() {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+
+        {/* NEW: Delivery Slot Selection */}
+        <View style={styles.sectionCard}>
+          <View style={styles.slotSectionHeader}>
+            <Text style={styles.sectionTitle}>Choose Delivery Time</Text>
+            <TouchableOpacity onPress={refreshSlots} disabled={isLoadingSlots}>
+              <Text style={styles.refreshButton}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {isLoadingSlots ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.brand.primary} />
+              <Text style={styles.loadingText}>Loading available slots...</Text>
+            </View>
+          ) : slotError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{slotError}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={loadSlots}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : availableSlots.length === 0 ? (
+            <View style={styles.emptySlots}>
+              <Text style={styles.emptyText}>
+                No delivery slots available at this time
+              </Text>
+              <Text style={styles.emptySubtext}>
+                Please check back later or contact support
+              </Text>
+            </View>
+          ) : (
+            <>
+              {/* Date Tabs */}
+              <View style={styles.dateTabs}>
+                {availableSlots.map((dateGroup) => (
+                  <TouchableOpacity
+                    key={dateGroup.date}
+                    style={[
+                      styles.dateTab,
+                      selectedDate === dateGroup.date && styles.dateTabActive,
+                      !dateGroup.hasSlots && styles.dateTabDisabled
+                    ]}
+                    onPress={() => dateGroup.hasSlots && setSelectedDate(dateGroup.date)}
+                    disabled={!dateGroup.hasSlots}
+                  >
+                    <Text style={[
+                      styles.dateTabText,
+                      selectedDate === dateGroup.date && styles.dateTabTextActive
+                    ]}>
+                      {dateGroup.displayDate}
+                    </Text>
+                    {!dateGroup.hasSlots && (
+                      <Text style={styles.noSlotsText}>No slots</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Slots for Selected Date */}
+              <View style={styles.slotsList}>
+                {availableSlots
+                  .find(d => d.date === selectedDate)
+                  ?.slots.map(slot => (
+                    <SlotCard
+                      key={slot.id}
+                      slot={slot}
+                      isSelected={selectedSlot?.id === slot.id}
+                      onSelect={handleSlotSelect}
+                    />
+                  ))}
+              </View>
+            </>
+          )}
+
+          {/* Slot Required Warning */}
+          {!selectedSlot && !isLoadingSlots && !slotError && availableSlots.length > 0 && (
+            <View style={styles.slotRequiredBanner}>
+              <Text style={styles.slotRequiredText}>
+                ⚠️ Please select a delivery slot to continue
+              </Text>
+            </View>
+          )}
+
+          {/* Selected Slot Summary */}
+          {selectedSlot && (
+            <View style={styles.selectedSlotSummary}>
+              <Text style={styles.selectedSlotLabel}>Selected Delivery Time:</Text>
+              <Text style={styles.selectedSlotValue}>
+                {slotService.formatDisplayDate(selectedSlot.date)}, {selectedSlot.display_label}
+              </Text>
+              {selectedSlot.label && (
+                <View style={styles.slotLabelPill}>
+                  <Text style={styles.slotLabelText}>{selectedSlot.label}</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
 
         <View style={styles.sectionCard}>
           <TouchableOpacity
@@ -547,6 +732,75 @@ export default function CheckoutScreen() {
         </TouchableOpacity>
       </View>
     </View>
+  );
+}
+
+// SlotCard Component
+interface SlotCardProps {
+  slot: TimeSlot;
+  isSelected: boolean;
+  onSelect: (slot: TimeSlot) => void;
+}
+
+function SlotCard({ slot, isSelected, onSelect }: SlotCardProps) {
+  const getStatusBadge = () => {
+    if (slot.status === 'full' || !slot.is_selectable) {
+      return (
+        <View style={styles.slotBadge_full}>
+          <Text style={styles.slotBadgeText}>Full</Text>
+        </View>
+      );
+    }
+    
+    if (slot.available_deliveries <= 3) {
+      return (
+        <View style={styles.slotBadge_limited}>
+          <Text style={styles.slotBadgeText}>{slot.available_deliveries} left</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.slotBadge_available}>
+        <Text style={styles.slotBadgeText}>Available</Text>
+      </View>
+    );
+  };
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.slotCard,
+        isSelected && styles.slotCardSelected,
+        !slot.is_selectable && styles.slotCardDisabled
+      ]}
+      onPress={() => slot.is_selectable && onSelect(slot)}
+      disabled={!slot.is_selectable}
+      activeOpacity={0.7}
+    >
+      <View style={styles.slotCardContent}>
+        <View style={styles.slotCardLeft}>
+          <Text style={[
+            styles.slotTime,
+            !slot.is_selectable && styles.slotTimeDisabled
+          ]}>
+            {slot.display_label}
+          </Text>
+          {slot.label && (
+            <Text style={styles.slotSubLabel}>{slot.label}</Text>
+          )}
+        </View>
+
+        <View style={styles.slotCardRight}>
+          {getStatusBadge()}
+          {isSelected && slot.is_selectable && (
+            <View style={styles.selectedCheckmark}>
+              <Text style={styles.checkmarkText}>✓</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -968,5 +1222,219 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: Colors.text.inverse,
+  },
+  // Slot Selection Styles
+  slotSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  refreshButton: {
+    fontSize: 14,
+    color: Colors.brand.primary,
+    fontWeight: '600' as const,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.text.secondary,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.status.error,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: Colors.brand.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: Colors.text.inverse,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  emptySlots: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+  },
+  dateTabs: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  dateTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border.medium,
+    backgroundColor: Colors.background.secondary,
+    alignItems: 'center',
+  },
+  dateTabActive: {
+    borderColor: Colors.brand.primary,
+    backgroundColor: Colors.brand.primaryLight,
+  },
+  dateTabDisabled: {
+    opacity: 0.5,
+  },
+  dateTabText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+  },
+  dateTabTextActive: {
+    color: Colors.brand.primary,
+  },
+  noSlotsText: {
+    fontSize: 10,
+    color: Colors.text.tertiary,
+    marginTop: 4,
+  },
+  slotsList: {
+    gap: 12,
+  },
+  slotCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    backgroundColor: Colors.background.primary,
+    padding: 16,
+  },
+  slotCardSelected: {
+    borderColor: Colors.brand.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.brand.primaryLight,
+  },
+  slotCardDisabled: {
+    opacity: 0.5,
+  },
+  slotCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  slotCardLeft: {
+    flex: 1,
+  },
+  slotTime: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+  },
+  slotTimeDisabled: {
+    color: Colors.text.tertiary,
+  },
+  slotSubLabel: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+  slotCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slotBadge_available: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: Colors.background.secondary,
+  },
+  slotBadge_limited: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: Colors.background.secondary,
+  },
+  slotBadge_full: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: Colors.background.secondary,
+  },
+  slotBadgeText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+  },
+  selectedCheckmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmarkText: {
+    color: Colors.text.inverse,
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  slotRequiredBanner: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.background.secondary,
+  },
+  slotRequiredText: {
+    fontSize: 13,
+    color: Colors.text.primary,
+    textAlign: 'center',
+  },
+  selectedSlotSummary: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.background.secondary,
+    borderWidth: 1,
+    borderColor: Colors.brand.primary,
+  },
+  selectedSlotLabel: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginBottom: 4,
+  },
+  selectedSlotValue: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+  },
+  slotLabelPill: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: Colors.brand.primaryLight,
+  },
+  slotLabelText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.brand.primary,
   },
 });

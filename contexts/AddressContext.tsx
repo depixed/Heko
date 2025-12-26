@@ -39,6 +39,8 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
           city: addr.city,
           state: addr.state,
           pincode: addr.pincode,
+          lat: addr.lat || undefined,
+          lng: addr.lng || undefined,
           isDefault: addr.is_default,
         }));
         setAddresses(appAddresses);

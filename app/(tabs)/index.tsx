@@ -8,17 +8,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/contexts/ProductContext';
 import { useBanners } from '@/hooks/useBanners';
 import { useAddresses } from '@/contexts/AddressContext';
+import { useVendorAssignment } from '@/contexts/VendorAssignmentContext';
 import { APP_CONFIG } from '@/constants/config';
 import type { Product } from '@/types';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import TopNav from '@/components/TopNav';
 import BannerSection from '@/components/BannerSection';
+import { NoVendorAvailable } from '@/components/NoVendorAvailable';
+import ProductGridCarousel from '@/components/ProductGridCarousel';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, cart, addToCart, updateCartItem } = useAuth();
   const { categories, products, isLoadingCategories, isLoadingProducts, searchProducts } = useProducts();
   const { getDefaultAddress } = useAddresses();
+  const { mode, hasEligibleVendor, isLoading: isLoadingVendor } = useVendorAssignment();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   
@@ -90,10 +94,26 @@ export default function HomeScreen() {
       subcategoryCardWidth = (screenWidth - 48 - (subcategoryNumColumns - 1) * 8) / subcategoryNumColumns;
     }
     
+    // Calculate product card width for 2-row grid (10 products per row)
+    // Formula: (screenWidth - padding - gaps) / productsPerRow
+    const horizontalPadding = 32; // 16 on each side
+    const productsPerRow = 10;
+    const gap = 12;
+    const totalGaps = (productsPerRow - 1) * gap;
+    const baseCardWidth = (screenWidth - horizontalPadding - totalGaps) / productsPerRow;
+    
+    // Apply different multipliers for mobile vs desktop
+    // Desktop: 40% increase, Mobile: 25% increase
+    const widthMultiplier = isMobile ? 1.25 : 1.4;
+    const horizontalProductCardWidth = baseCardWidth * widthMultiplier;
+    
+    // Different max widths for mobile vs desktop
+    const maxCardWidth = isMobile ? 200 : 252; // Mobile: ~160 * 1.25, Desktop: 180 * 1.4
+    
     return {
       categoryCardWidth,
       subcategoryCardWidth,
-      horizontalProductCardWidth: 160,
+      horizontalProductCardWidth: Math.max(120, Math.min(maxCardWidth, horizontalProductCardWidth)),
     };
   }, [screenWidth]);
 
@@ -116,7 +136,7 @@ export default function HomeScreen() {
         <View style={styles.horizontalProductInfo}>
           <View style={styles.horizontalProductTop}>
             <Text style={styles.horizontalProductName} numberOfLines={2}>{product.name}</Text>
-            <Text style={styles.horizontalProductUnit}>{product.unit}</Text>
+            {product.unit && product.unit.trim() && <Text style={styles.horizontalProductUnit}>{product.unit}</Text>}
             <View style={styles.horizontalProductPricing}>
               <View style={styles.horizontalPriceRow}>
                 <Text style={styles.horizontalProductPrice}>₹{product.price.toFixed(2)}</Text>
@@ -241,11 +261,20 @@ export default function HomeScreen() {
     return `${addressType} - ${area}`;
   }, [defaultAddress]);
 
+  // Show "No Vendor Available" message in single mode when no eligible vendor
+  if (mode === 'single' && !hasEligibleVendor && !isLoadingVendor) {
+    return (
+      <ResponsiveContainer>
+        <NoVendorAvailable />
+      </ResponsiveContainer>
+    );
+  }
+
   return (
     <ResponsiveContainer>
       <View style={styles.container}>
-        <TopNav 
-          showBackButton={false} 
+        <TopNav
+          showBackButton={false}
           showAddress={true}
           addressLabel="Deliver to"
           addressValue={addressDisplayText}
@@ -307,8 +336,8 @@ export default function HomeScreen() {
                       />
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                        <Text style={styles.productUnit}>{product.unit}</Text>
-                        <Text style={styles.productCategory}>{product.category}</Text>
+                        {product.unit && product.unit.trim() && <Text style={styles.productUnit}>{product.unit}</Text>}
+                        {product.category && product.category.trim() && <Text style={styles.productCategory}>{product.category}</Text>}
                         <View style={styles.productPricing}>
                           <Text style={styles.productPrice}>₹{product.price.toFixed(2)}</Text>
                           {product.discount > 0 && (
@@ -452,15 +481,14 @@ export default function HomeScreen() {
                       <ChevronRight size={16} color={Colors.brand.primary} />
                     </TouchableOpacity>
                   </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.horizontalScroll}
-                    contentContainerStyle={styles.horizontalScrollContent}
-                    removeClippedSubviews={true}
-                  >
-                    {categoryProducts.map((product) => renderProductCard(product, layoutDimensions.horizontalProductCardWidth))}
-                  </ScrollView>
+                  <ProductGridCarousel
+                    products={categoryProducts}
+                    renderProductCard={renderProductCard}
+                    cardWidth={layoutDimensions.horizontalProductCardWidth}
+                    productsPerRow={10}
+                    initialProductsCount={20}
+                    loadMoreChunkSize={20}
+                  />
                 </View>
               );
             })}

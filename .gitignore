@@ -38,3 +38,7 @@ yarn-error.*
 
 # Local Netlify folder
 .netlify
+
+# Build files
+*.apk
+build.apk
