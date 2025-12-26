@@ -15,6 +15,7 @@ import ResponsiveContainer from '@/components/ResponsiveContainer';
 import TopNav from '@/components/TopNav';
 import BannerSection from '@/components/BannerSection';
 import { NoVendorAvailable } from '@/components/NoVendorAvailable';
+import ProductGridCarousel from '@/components/ProductGridCarousel';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -93,10 +94,26 @@ export default function HomeScreen() {
       subcategoryCardWidth = (screenWidth - 48 - (subcategoryNumColumns - 1) * 8) / subcategoryNumColumns;
     }
     
+    // Calculate product card width for 2-row grid (10 products per row)
+    // Formula: (screenWidth - padding - gaps) / productsPerRow
+    const horizontalPadding = 32; // 16 on each side
+    const productsPerRow = 10;
+    const gap = 12;
+    const totalGaps = (productsPerRow - 1) * gap;
+    const baseCardWidth = (screenWidth - horizontalPadding - totalGaps) / productsPerRow;
+    
+    // Apply different multipliers for mobile vs desktop
+    // Desktop: 40% increase, Mobile: 25% increase
+    const widthMultiplier = isMobile ? 1.25 : 1.4;
+    const horizontalProductCardWidth = baseCardWidth * widthMultiplier;
+    
+    // Different max widths for mobile vs desktop
+    const maxCardWidth = isMobile ? 200 : 252; // Mobile: ~160 * 1.25, Desktop: 180 * 1.4
+    
     return {
       categoryCardWidth,
       subcategoryCardWidth,
-      horizontalProductCardWidth: 160,
+      horizontalProductCardWidth: Math.max(120, Math.min(maxCardWidth, horizontalProductCardWidth)),
     };
   }, [screenWidth]);
 
@@ -464,15 +481,14 @@ export default function HomeScreen() {
                       <ChevronRight size={16} color={Colors.brand.primary} />
                     </TouchableOpacity>
                   </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.horizontalScroll}
-                    contentContainerStyle={styles.horizontalScrollContent}
-                    removeClippedSubviews={true}
-                  >
-                    {categoryProducts.map((product) => renderProductCard(product, layoutDimensions.horizontalProductCardWidth))}
-                  </ScrollView>
+                  <ProductGridCarousel
+                    products={categoryProducts}
+                    renderProductCard={renderProductCard}
+                    cardWidth={layoutDimensions.horizontalProductCardWidth}
+                    productsPerRow={10}
+                    initialProductsCount={20}
+                    loadMoreChunkSize={20}
+                  />
                 </View>
               );
             })}
