@@ -15,10 +15,21 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
       console.log('[SW] Caching static assets');
-      return cache.addAll(STATIC_ASSETS);
+      // Don't fail if some assets can't be cached
+      return Promise.allSettled(
+        STATIC_ASSETS.map(url => 
+          cache.add(url).catch(err => {
+            console.warn('[SW] Failed to cache:', url, err);
+            return null;
+          })
+        )
+      );
+    }).then(() => {
+      console.log('[SW] Service worker installed successfully');
+      // Force activation immediately
+      return self.skipWaiting();
     })
   );
-  self.skipWaiting();
 });
 
 // Activate event - clean up old caches
@@ -34,9 +45,12 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
+    }).then(() => {
+      console.log('[SW] Service worker activated');
+      // Claim all clients immediately (important for PWA installability)
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
 // Fetch event - network first, then cache

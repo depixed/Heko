@@ -28,26 +28,8 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
     let mounted = true;
     let watchSubscription: Location.LocationSubscription | null = null;
 
-    const initializeLocation = async () => {
+    const fetchLocationAndGeocode = async () => {
       try {
-        // Request permission
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        
-        if (!mounted) return;
-
-        if (status !== 'granted') {
-          console.log('[LocationContext] Permission denied');
-          setLocationState(prev => ({
-            ...prev,
-            isLoading: false,
-            hasPermission: false,
-            permissionStatus: status,
-          }));
-          return;
-        }
-
-        console.log('[LocationContext] Permission granted, getting location');
-
         // Get current position
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -67,20 +49,20 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
 
         if (reverseGeocode && reverseGeocode.length > 0) {
           const geocode = reverseGeocode[0];
-          const city = geocode.city || geocode.subAdministrativeArea || geocode.region;
-          const area = geocode.district || geocode.sublocality || geocode.street;
+          const city = geocode.city || geocode.region;
+          const area = geocode.district || geocode.street || geocode.name;
           
           console.log('[LocationContext] Reverse geocoded:', { city, area });
 
-          setLocationState({
+          setLocationState(prev => ({
+            ...prev,
             city: city || null,
             area: area || null,
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
             isLoading: false,
             hasPermission: true,
-            permissionStatus: status,
-          });
+          }));
 
           // Watch for location changes (optional - updates when user moves)
           if (Platform.OS !== 'web') {
@@ -101,8 +83,8 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
 
                   if (newGeocode && newGeocode.length > 0 && mounted) {
                     const geocode = newGeocode[0];
-                    const city = geocode.city || geocode.subAdministrativeArea || geocode.region;
-                    const area = geocode.district || geocode.sublocality || geocode.street;
+                    const city = geocode.city || geocode.region;
+                    const area = geocode.district || geocode.street || geocode.name;
 
                     setLocationState(prev => ({
                       ...prev,
@@ -125,9 +107,50 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
             longitude: location.coords.longitude,
             isLoading: false,
             hasPermission: true,
-            permissionStatus: status,
           }));
         }
+      } catch (error) {
+        console.error('[LocationContext] Error fetching location:', error);
+        if (mounted) {
+          setLocationState(prev => ({
+            ...prev,
+            isLoading: false,
+          }));
+        }
+      }
+    };
+
+    const initializeLocation = async () => {
+      try {
+        // Check current permission status first
+        const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+        
+        if (!mounted) return;
+
+        if (currentStatus === 'granted') {
+          console.log('[LocationContext] Permission already granted, fetching location');
+          await fetchLocationAndGeocode();
+          return;
+        }
+
+        // Request permission
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        
+        if (!mounted) return;
+
+        if (status !== 'granted') {
+          console.log('[LocationContext] Permission denied');
+          setLocationState(prev => ({
+            ...prev,
+            isLoading: false,
+            hasPermission: false,
+            permissionStatus: status,
+          }));
+          return;
+        }
+
+        console.log('[LocationContext] Permission granted, fetching location');
+        await fetchLocationAndGeocode();
       } catch (error) {
         console.error('[LocationContext] Error initializing location:', error);
         if (mounted) {
@@ -149,17 +172,80 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
     };
   }, []);
 
+  const fetchLocationAndGeocode = async () => {
+    try {
+      setLocationState(prev => ({ ...prev, isLoading: true }));
+
+      // Get current position
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      // Reverse geocode to get city and area
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (reverseGeocode && reverseGeocode.length > 0) {
+        const geocode = reverseGeocode[0];
+        const city = geocode.city || geocode.region;
+        const area = geocode.district || geocode.street || geocode.name;
+        
+        console.log('[LocationContext] Reverse geocoded:', { city, area });
+
+        setLocationState(prev => ({
+          ...prev,
+          city: city || null,
+          area: area || null,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          isLoading: false,
+          hasPermission: true,
+          permissionStatus: 'granted' as Location.PermissionStatus,
+        }));
+      } else {
+        setLocationState(prev => ({
+          ...prev,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          isLoading: false,
+          hasPermission: true,
+          permissionStatus: 'granted' as Location.PermissionStatus,
+        }));
+      }
+    } catch (error) {
+      console.error('[LocationContext] Error fetching location:', error);
+      setLocationState(prev => ({
+        ...prev,
+        isLoading: false,
+      }));
+    }
+  };
+
   const requestPermission = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
+      
       setLocationState(prev => ({
         ...prev,
         hasPermission: status === 'granted',
         permissionStatus: status,
       }));
+
+      // If permission is granted, fetch location and geocode
+      if (status === 'granted') {
+        console.log('[LocationContext] Permission granted via requestPermission, fetching location...');
+        await fetchLocationAndGeocode();
+      }
+
       return status === 'granted';
     } catch (error) {
       console.error('[LocationContext] Error requesting permission:', error);
+      setLocationState(prev => ({
+        ...prev,
+        isLoading: false,
+      }));
       return false;
     }
   };

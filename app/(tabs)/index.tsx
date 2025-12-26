@@ -97,26 +97,33 @@ export default function HomeScreen() {
       subcategoryCardWidth = (screenWidth - 48 - (subcategoryNumColumns - 1) * 8) / subcategoryNumColumns;
     }
     
-    // Calculate product card width for 2-row grid (10 products per row)
-    // Formula: (screenWidth - padding - gaps) / productsPerRow
+    // Calculate product card width for horizontal scroll
+    // On mobile, show fewer products per "view" to make cards wider
     const horizontalPadding = 32; // 16 on each side
-    const productsPerRow = 10;
     const gap = 12;
+    
+    let productsPerRow, widthMultiplier, maxCardWidth;
+    
+    if (isMobile) {
+      // Mobile: Show 6 products per row for wider cards
+      productsPerRow = 6;
+      widthMultiplier = 1.0; // No multiplier needed since we're showing fewer products
+      maxCardWidth = 280; // Allow cards to be wider on mobile
+    } else {
+      // Desktop: Show 10 products per row
+      productsPerRow = 10;
+      widthMultiplier = 1.7;
+      maxCardWidth = 320;
+    }
+    
     const totalGaps = (productsPerRow - 1) * gap;
     const baseCardWidth = (screenWidth - horizontalPadding - totalGaps) / productsPerRow;
-    
-    // Apply different multipliers for mobile vs desktop
-    // Desktop: 70% increase for better visibility, Mobile: 25% increase
-    const widthMultiplier = isMobile ? 1.25 : 1.7;
     const horizontalProductCardWidth = baseCardWidth * widthMultiplier;
-    
-    // Different max widths for mobile vs desktop
-    const maxCardWidth = isMobile ? 200 : 320; // Mobile: ~160 * 1.25, Desktop: ~188 * 1.7
     
     return {
       categoryCardWidth,
       subcategoryCardWidth,
-      horizontalProductCardWidth: Math.max(120, Math.min(maxCardWidth, horizontalProductCardWidth)),
+      horizontalProductCardWidth: Math.max(isMobile ? 160 : 120, Math.min(maxCardWidth, horizontalProductCardWidth)),
     };
   }, [screenWidth]);
 
@@ -252,17 +259,11 @@ export default function HomeScreen() {
   };
 
   const addressDisplayText = useMemo(() => {
-    // Priority: GPS-detected city > Saved address > Fallback
-    if (detectedCity) {
-      // Show GPS-detected city and area
-      if (detectedArea) {
-        return `${detectedArea}, ${detectedCity}`;
-      }
-      return detectedCity;
-    }
+    // When logged in: Show saved address if available, otherwise GPS-detected location
+    // When logged out: Show GPS-detected location, fallback to "Add Address"
     
-    // Fallback to saved address
-    if (defaultAddress) {
+    // If user is logged in and has a default address, show it
+    if (user && defaultAddress) {
       const addressType = defaultAddress.type === 'other' && defaultAddress.otherLabel 
         ? defaultAddress.otherLabel 
         : defaultAddress.type.charAt(0).toUpperCase() + defaultAddress.type.slice(1);
@@ -271,13 +272,23 @@ export default function HomeScreen() {
       return `${addressType} - ${area}`;
     }
     
+    // For logged out users OR logged in users without saved address: Show GPS-detected location
+    if (detectedCity) {
+      // Show GPS-detected city and area
+      if (detectedArea) {
+        return `${detectedArea}, ${detectedCity}`;
+      }
+      return detectedCity;
+    }
+    
     // Show loading state while detecting location
     if (isLoadingLocation) {
       return 'Detecting location...';
     }
     
+    // Fallback: Show "Add Address" for logged out users
     return 'Add Address';
-  }, [detectedCity, detectedArea, defaultAddress, isLoadingLocation]);
+  }, [detectedCity, detectedArea, defaultAddress, isLoadingLocation, user]);
 
   // Show "No Vendor Available" message in single mode when no eligible vendor
   if (mode === 'single' && !hasEligibleVendor && !isLoadingVendor) {

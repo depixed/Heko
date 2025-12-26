@@ -117,16 +117,69 @@
         }, 500);
       });
       
-      // Register service worker for PWA
+      // Register service worker for PWA (required for installability)
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').then(function(registration) {
-            console.log('[PWA] Service Worker registered with scope:', registration.scope);
-          }).catch(function(error) {
-            console.log('[PWA] Service Worker registration failed:', error);
-          });
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function(registration) {
+              console.log('[PWA] Service Worker registered successfully:', registration.scope);
+              console.log('[PWA] Service Worker state:', registration.active ? 'active' : 'installing');
+              
+              // Check if service worker is active
+              if (registration.active) {
+                console.log('[PWA] Service Worker is active and ready');
+              } else if (registration.installing) {
+                console.log('[PWA] Service Worker is installing...');
+                registration.installing.addEventListener('statechange', function() {
+                  if (registration.installing.state === 'activated') {
+                    console.log('[PWA] Service Worker activated successfully');
+                  }
+                });
+              }
+            })
+            .catch(function(error) {
+              console.error('[PWA] Service Worker registration failed:', error);
+              console.error('[PWA] This may prevent the app from being installable');
+            });
         });
+      } else {
+        console.warn('[PWA] Service Workers are not supported in this browser');
       }
+      
+      // Verify manifest is accessible
+      fetch('/manifest.json')
+        .then(function(response) {
+          if (response.ok) {
+            console.log('[PWA] Manifest.json is accessible');
+            return response.json();
+          } else {
+            console.error('[PWA] Manifest.json returned status:', response.status);
+          }
+        })
+        .then(function(manifest) {
+          if (manifest) {
+            console.log('[PWA] Manifest validated:', {
+              name: manifest.name,
+              short_name: manifest.short_name,
+              icons: manifest.icons ? manifest.icons.length : 0,
+              display: manifest.display
+            });
+            
+            // Verify required icons exist
+            if (manifest.icons) {
+              const has192 = manifest.icons.some(icon => icon.sizes === '192x192');
+              const has512 = manifest.icons.some(icon => icon.sizes === '512x512');
+              console.log('[PWA] Icon check:', { has192, has512 });
+              
+              if (!has192 || !has512) {
+                console.warn('[PWA] Missing required icons (192x192 or 512x512)');
+              }
+            }
+          }
+        })
+        .catch(function(error) {
+          console.error('[PWA] Error validating manifest:', error);
+        });
     </script>
   </body>
 </html>
