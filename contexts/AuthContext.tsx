@@ -721,13 +721,44 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   }, [cart]);
 
   const updateCartItem = useCallback(async (productId: string, quantity: number) => {
-    const newCart = quantity > 0
-      ? cart.map(item => item.product.id === productId ? { ...item, quantity } : item)
-      : cart.filter(item => item.product.id !== productId);
-    
-    setCart(newCart);
-    await AsyncStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(newCart));
-  }, [cart]);
+    // If user is logged in, sync with backend
+    if (user?.id) {
+      try {
+        const { cartService } = await import('@/lib/cart.service');
+        if (quantity <= 0) {
+          const result = await cartService.removeFromCart(user.id, productId);
+          if (result.success) {
+            const newCart = cart.filter(item => item.product.id !== productId);
+            setCart(newCart);
+            await AsyncStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(newCart));
+          }
+        } else {
+          const result = await cartService.updateCartItem(user.id, productId, quantity);
+          if (result.success) {
+            const newCart = cart.map(item => item.product.id === productId ? { ...item, quantity } : item);
+            setCart(newCart);
+            await AsyncStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(newCart));
+          }
+        }
+      } catch (error) {
+        console.error('[AuthContext] Error syncing cart with backend:', error);
+        // Fallback to local update
+        const newCart = quantity > 0
+          ? cart.map(item => item.product.id === productId ? { ...item, quantity } : item)
+          : cart.filter(item => item.product.id !== productId);
+        setCart(newCart);
+        await AsyncStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(newCart));
+      }
+    } else {
+      // User not logged in, update local cart only
+      const newCart = quantity > 0
+        ? cart.map(item => item.product.id === productId ? { ...item, quantity } : item)
+        : cart.filter(item => item.product.id !== productId);
+      
+      setCart(newCart);
+      await AsyncStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(newCart));
+    }
+  }, [cart, user]);
 
   const clearCart = useCallback(async () => {
     setCart([]);

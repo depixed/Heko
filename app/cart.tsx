@@ -70,19 +70,9 @@ export default function CartScreen() {
   ).slice(0, 5);
 
   const handleQuantityChange = (productId: string, newQty: number) => {
-    if (newQty === 0) {
-      Alert.alert(
-        'Remove Item',
-        'Are you sure you want to remove this item from cart?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => updateCartItem(productId, 0),
-          },
-        ]
-      );
+    if (newQty <= 0) {
+      // Automatically remove item when quantity reaches 0
+      updateCartItem(productId, 0);
     } else {
       updateCartItem(productId, newQty);
     }
