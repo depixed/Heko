@@ -596,7 +596,9 @@ export default function WalletScreen() {
               <>
                 <View style={styles.detailHeader}>
                   <Text style={styles.detailIcon}>{getTransactionIcon(selectedTransaction.type, selectedTransaction.kind)}</Text>
-                  <Text style={styles.detailTitle}>{selectedTransaction.description}</Text>
+                  <Text style={styles.detailTitle} numberOfLines={3} ellipsizeMode="tail">
+                    {selectedTransaction.description}
+                  </Text>
                 </View>
 
                 <Text
@@ -618,11 +620,16 @@ export default function WalletScreen() {
                 {selectedTransaction.orderId && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order/Reference ID</Text>
-                    <TouchableOpacity onPress={() => {
-                      setSelectedTransaction(null);
-                      router.push(`/order/${selectedTransaction.orderId}`);
-                    }}>
-                      <Text style={styles.detailLink}>{selectedTransaction.orderId}</Text>
+                    <TouchableOpacity 
+                      style={styles.detailLinkContainer}
+                      onPress={() => {
+                        setSelectedTransaction(null);
+                        router.push(`/order/${selectedTransaction.orderId}`);
+                      }}
+                    >
+                      <Text style={styles.detailLink} numberOfLines={2} ellipsizeMode="middle">
+                        {selectedTransaction.orderId}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -648,7 +655,11 @@ export default function WalletScreen() {
                 {selectedTransaction.conversionId && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Conversion ID</Text>
-                    <Text style={styles.detailValue}>{selectedTransaction.conversionId}</Text>
+                    <View style={styles.detailValueContainer}>
+                      <Text style={styles.detailValue} numberOfLines={2} ellipsizeMode="middle">
+                        {selectedTransaction.conversionId}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
@@ -1031,6 +1042,7 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.text.primary,
     textAlign: 'center',
+    paddingHorizontal: 8,
   },
   detailAmount: {
     fontSize: 32,
@@ -1045,20 +1057,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
+    gap: 12,
   },
   detailLabel: {
     fontSize: 14,
     color: Colors.text.secondary,
+    flexShrink: 0,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text.primary,
   },
+  detailValueContainer: {
+    flex: 1,
+    flexShrink: 1,
+    alignItems: 'flex-end',
+  },
+  detailLinkContainer: {
+    flex: 1,
+    flexShrink: 1,
+    alignItems: 'flex-end',
+  },
   detailLink: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.brand.primary,
+    textAlign: 'right',
   },
   closeButton: {
     marginTop: 24,

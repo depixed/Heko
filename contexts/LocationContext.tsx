@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 interface LocationState {
   city: string | null;
   area: string | null;
+  state: string | null;
   latitude: number | null;
   longitude: number | null;
   isLoading: boolean;
@@ -17,6 +18,7 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
   const [locationState, setLocationState] = useState<LocationState>({
     city: null,
     area: null,
+    state: null,
     latitude: null,
     longitude: null,
     isLoading: true,
@@ -51,13 +53,16 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
           const geocode = reverseGeocode[0];
           const city = geocode.city || geocode.region;
           const area = geocode.district || geocode.street || geocode.name;
+          // Use region for state only if we have a city (to avoid using it for both)
+          const state = geocode.city ? geocode.region : null;
           
-          console.log('[LocationContext] Reverse geocoded:', { city, area });
+          console.log('[LocationContext] Reverse geocoded:', { city, area, state });
 
           setLocationState(prev => ({
             ...prev,
             city: city || null,
             area: area || null,
+            state: state || null,
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
             isLoading: false,
@@ -85,11 +90,13 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
                     const geocode = newGeocode[0];
                     const city = geocode.city || geocode.region;
                     const area = geocode.district || geocode.street || geocode.name;
+                    const state = geocode.city ? geocode.region : null;
 
                     setLocationState(prev => ({
                       ...prev,
                       city: city || prev.city,
                       area: area || prev.area,
+                      state: state || prev.state,
                       latitude: newLocation.coords.latitude,
                       longitude: newLocation.coords.longitude,
                     }));
@@ -191,13 +198,16 @@ export const [LocationProvider, useLocation] = createContextHook(() => {
         const geocode = reverseGeocode[0];
         const city = geocode.city || geocode.region;
         const area = geocode.district || geocode.street || geocode.name;
+        // Use region for state only if we have a city (to avoid using it for both)
+        const state = geocode.city ? geocode.region : null;
         
-        console.log('[LocationContext] Reverse geocoded:', { city, area });
+        console.log('[LocationContext] Reverse geocoded:', { city, area, state });
 
         setLocationState(prev => ({
           ...prev,
           city: city || null,
           area: area || null,
+          state: state || null,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           isLoading: false,

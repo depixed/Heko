@@ -370,8 +370,13 @@ export default function CheckoutScreen() {
             </View>
           ) : (
             <>
-              {/* Date Tabs */}
-              <View style={styles.dateTabs}>
+              {/* Date Tabs - Horizontally Scrollable */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dateTabsContainer}
+                style={styles.dateTabsScrollView}
+              >
                 {availableSlots.map((dateGroup) => (
                   <TouchableOpacity
                     key={dateGroup.date}
@@ -383,10 +388,12 @@ export default function CheckoutScreen() {
                     onPress={() => dateGroup.hasSlots && setSelectedDate(dateGroup.date)}
                     disabled={!dateGroup.hasSlots}
                   >
-                    <Text style={[
-                      styles.dateTabText,
-                      selectedDate === dateGroup.date && styles.dateTabTextActive
-                    ]}>
+                    <Text 
+                      style={[
+                        styles.dateTabText,
+                        selectedDate === dateGroup.date && styles.dateTabTextActive
+                      ]}
+                    >
                       {dateGroup.displayDate}
                     </Text>
                     {!dateGroup.hasSlots && (
@@ -394,7 +401,7 @@ export default function CheckoutScreen() {
                     )}
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
 
               {/* Slots for Selected Date */}
               <View style={styles.slotsList}>
@@ -1280,13 +1287,15 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     textAlign: 'center',
   },
-  dateTabs: {
-    flexDirection: 'row',
-    gap: 12,
+  dateTabsScrollView: {
     marginBottom: 16,
   },
+  dateTabsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 4,
+  },
   dateTab: {
-    flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -1294,6 +1303,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border.medium,
     backgroundColor: Colors.background.secondary,
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
   },
   dateTabActive: {
     borderColor: Colors.brand.primary,
@@ -1306,6 +1317,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text.primary,
+    textAlign: 'center',
   },
   dateTabTextActive: {
     color: Colors.brand.primary,

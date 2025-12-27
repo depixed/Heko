@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAddresses } from '@/contexts/AddressContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from '@/contexts/LocationContext';
 import Colors from '@/constants/colors';
 import type { Address } from '@/types';
 
@@ -23,7 +24,9 @@ export default function AddAddressScreen() {
   const insets = useSafeAreaInsets();
   const { addAddress } = useAddresses();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { city: detectedCity, area: detectedArea, state: detectedState, isLoading: isLoadingLocation } = useLocation();
   const [isMounted, setIsMounted] = useState(false);
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -62,6 +65,19 @@ export default function AddAddressScreen() {
       }
     }
   }, [isAuthenticated, isMounted, authLoading, router]);
+
+  // Auto-fill location data when available (only once, and only if fields are empty)
+  useEffect(() => {
+    if (!isLoadingLocation && !hasAutoFilled && (detectedCity || detectedArea || detectedState)) {
+      setFormData((prev) => ({
+        ...prev,
+        city: prev.city || detectedCity || '',
+        area: prev.area || detectedArea || '',
+        state: prev.state || detectedState || '',
+      }));
+      setHasAutoFilled(true);
+    }
+  }, [detectedCity, detectedArea, detectedState, isLoadingLocation, hasAutoFilled]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
