@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { ChevronLeft, ChevronDown, ChevronUp, Home, Briefcase, MapPin } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, ChevronUp, Home, Briefcase, MapPin, Plus, Minus, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
 import Colors from '@/constants/colors';
@@ -26,7 +26,7 @@ type PaymentMethod = 'cash' | 'upi';
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { cart, wallet, clearCart, user, isAuthenticated, isLoading } = useAuth();
+  const { cart, wallet, clearCart, user, isAuthenticated, isLoading, updateCartItem } = useAuth();
   const { getDefaultAddress } = useAddresses();
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderPlacedSuccessfully, setOrderPlacedSuccessfully] = useState(false);
@@ -445,20 +445,46 @@ export default function CheckoutScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <TouchableOpacity
-            style={styles.collapsibleHeader}
-            onPress={() => setOrderSummaryExpanded(!orderSummaryExpanded)}
-          >
-            <Text style={styles.sectionTitle}>
-              Order Summary ({priceDetails.itemCount} item
-              {priceDetails.itemCount !== 1 ? 's' : ''})
-            </Text>
-            {orderSummaryExpanded ? (
-              <ChevronUp size={20} color={Colors.text.secondary} />
-            ) : (
-              <ChevronDown size={20} color={Colors.text.secondary} />
+          <View style={styles.collapsibleHeader}>
+            <TouchableOpacity
+              style={styles.collapsibleHeaderLeft}
+              onPress={() => setOrderSummaryExpanded(!orderSummaryExpanded)}
+            >
+              <Text style={styles.sectionTitle}>
+                Order Summary ({priceDetails.itemCount} item
+                {priceDetails.itemCount !== 1 ? 's' : ''})
+              </Text>
+              {orderSummaryExpanded ? (
+                <ChevronUp size={20} color={Colors.text.secondary} />
+              ) : (
+                <ChevronDown size={20} color={Colors.text.secondary} />
+              )}
+            </TouchableOpacity>
+            {cart.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearCartButton}
+                onPress={() => {
+                  Alert.alert(
+                    'Clear Cart',
+                    'Are you sure you want to remove all items from your cart?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Clear',
+                        style: 'destructive',
+                        onPress: () => {
+                          clearCart();
+                          router.replace('/cart' as any);
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.clearCartButtonText}>Clear</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
 
           {orderSummaryExpanded && (
             <View style={styles.orderItemsList}>
@@ -471,7 +497,36 @@ export default function CheckoutScreen() {
                       <Text style={styles.orderItemTitle} numberOfLines={1}>
                         {item.product.name}
                       </Text>
-                      <Text style={styles.orderItemQty}>Qty: {item.quantity}</Text>
+                      <View style={styles.orderItemControls}>
+                        <View style={styles.orderItemQtyStepper}>
+                          <TouchableOpacity
+                            style={styles.orderItemQtyButton}
+                            onPress={() => {
+                              const newQty = item.quantity - 1;
+                              if (newQty <= 0) {
+                                updateCartItem(item.product.id, 0);
+                              } else {
+                                updateCartItem(item.product.id, newQty);
+                              }
+                            }}
+                          >
+                            <Minus size={14} color={Colors.text.inverse} />
+                          </TouchableOpacity>
+                          <Text style={styles.orderItemQtyText}>{item.quantity}</Text>
+                          <TouchableOpacity
+                            style={styles.orderItemQtyButton}
+                            onPress={() => updateCartItem(item.product.id, item.quantity + 1)}
+                          >
+                            <Plus size={14} color={Colors.text.inverse} />
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.orderItemDeleteButton}
+                          onPress={() => updateCartItem(item.product.id, 0)}
+                        >
+                          <Trash2 size={16} color={Colors.status.error} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                     <Text style={styles.orderItemTotal}>
                       ₹{(item.product.price * item.quantity).toFixed(2)}
@@ -887,6 +942,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 0,
   },
+  collapsibleHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  clearCartButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: Colors.background.secondary,
+  },
+  clearCartButtonText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.status.error,
+  },
   orderItemsList: {
     marginTop: 16,
   },
@@ -918,6 +990,38 @@ const styles = StyleSheet.create({
   orderItemQty: {
     fontSize: 12,
     color: Colors.text.secondary,
+  },
+  orderItemControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  orderItemQtyStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: 8,
+    padding: 4,
+  },
+  orderItemQtyButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: Colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderItemQtyText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  orderItemDeleteButton: {
+    padding: 6,
   },
   orderItemTotal: {
     fontSize: 14,
