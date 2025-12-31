@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Address } from '@/types';
 import { addressService } from '@/lib/address.service';
+import { geocodingService } from '@/lib/geocoding.service';
 import { useAuth } from './AuthContext';
 
 
@@ -65,6 +66,25 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       console.log('[AddressContext] Adding new address for user:', user.id);
       console.log('[AddressContext] Address to add:', JSON.stringify(address, null, 2));
       
+      // Build full address string and geocode
+      const fullAddress = geocodingService.buildAddressString({
+        flat: address.flat,
+        area: address.area,
+        landmark: address.landmark,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+      });
+
+      console.log('[AddressContext] Geocoding address:', fullAddress);
+      const geocodeResult = await geocodingService.geocodeAddress(fullAddress);
+      
+      if (geocodeResult) {
+        console.log('[AddressContext] Geocoding successful:', geocodeResult);
+      } else {
+        console.warn('[AddressContext] Geocoding failed, saving address without coordinates');
+      }
+      
       const result = await addressService.createAddress({
         user_id: user.id,
         name: address.name,
@@ -77,6 +97,8 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
         city: address.city,
         state: address.state,
         pincode: address.pincode,
+        lat: geocodeResult?.lat || null,
+        lng: geocodeResult?.lng || null,
         is_default: address.isDefault,
       });
       
@@ -98,6 +120,37 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       console.log('[AddressContext] Updating address:', id);
       console.log('[AddressContext] Updates:', JSON.stringify(updates, null, 2));
       
+      // Check if any address fields that affect location have changed
+      const locationFields = ['flat', 'area', 'landmark', 'city', 'state', 'pincode'];
+      const hasLocationChange = locationFields.some(field => updates[field as keyof Address] !== undefined);
+      
+      let geocodeResult: { lat: number; lng: number } | null = null;
+      
+      if (hasLocationChange) {
+        // Get current address to build full address string
+        const currentAddress = addresses.find(addr => addr.id === id);
+        if (currentAddress) {
+          const updatedAddress = { ...currentAddress, ...updates };
+          const fullAddress = geocodingService.buildAddressString({
+            flat: updatedAddress.flat,
+            area: updatedAddress.area,
+            landmark: updatedAddress.landmark,
+            city: updatedAddress.city,
+            state: updatedAddress.state,
+            pincode: updatedAddress.pincode,
+          });
+
+          console.log('[AddressContext] Geocoding updated address:', fullAddress);
+          geocodeResult = await geocodingService.geocodeAddress(fullAddress);
+          
+          if (geocodeResult) {
+            console.log('[AddressContext] Geocoding successful:', geocodeResult);
+          } else {
+            console.warn('[AddressContext] Geocoding failed, updating address without new coordinates');
+          }
+        }
+      }
+      
       const updateData: any = {};
       
       if (updates.name !== undefined) updateData.name = updates.name;
@@ -112,6 +165,12 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       if (updates.pincode !== undefined) updateData.pincode = updates.pincode;
       if (updates.isDefault !== undefined) updateData.is_default = updates.isDefault;
       
+      // Update coordinates if geocoding was successful
+      if (geocodeResult) {
+        updateData.lat = geocodeResult.lat;
+        updateData.lng = geocodeResult.lng;
+      }
+      
       const result = await addressService.updateAddress(id, updateData);
       
       if (result.success) {
@@ -125,7 +184,7 @@ export const [AddressProvider, useAddresses] = createContextHook(() => {
       console.error('[AddressContext] Error updating address:', error);
       throw error;
     }
-  }, []);
+  }, [addresses]);
 
   const deleteAddress = useCallback(async (id: string) => {
     if (addresses.length === 1) {
