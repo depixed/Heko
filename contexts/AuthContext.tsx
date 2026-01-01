@@ -116,31 +116,36 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         try {
           console.log('[AuthContext] Loading referral stats for user:', sessionResult.user.id);
           
-          // Query referral_conversions to get unique referee IDs (friends joined)
-          // This is the source of truth for referral relationships
-          const { data: conversions, error: conversionsError } = await supabase
-            .from('referral_conversions')
-            .select('referee_id')
-            .eq('referrer_id', sessionResult.user.id);
-          
-          // Get unique referee IDs
-          const refereeIds = conversions && conversions.length > 0
-            ? [...new Set(conversions.map((c: any) => c.referee_id).filter(Boolean))]
-            : [];
-          
-          // Also query profiles to verify (for debugging)
-          const { data: referredUsers } = await supabase
+          // First, get the user's referral code
+          const { data: currentUserProfile, error: currentUserError } = await supabase
+            .from('profiles')
+            .select('referral_code')
+            .eq('id', sessionResult.user.id)
+            .single();
+
+          if (currentUserError || !currentUserProfile?.referral_code) {
+            console.error('[AuthContext] Error getting user referral code:', currentUserError);
+            throw new Error('Unable to load user referral code');
+          }
+
+          // Query profiles to get ALL referred users (Friends Joined)
+          const { data: referredUsers, error: referredError } = await supabase
             .from('profiles')
             .select('id, created_at')
-            .eq('referred_by', sessionResult.user.id);
+            .eq('referred_by', currentUserProfile.referral_code);
+
+          if (referredError) {
+            console.error('[AuthContext] Error loading referred users:', referredError);
+          }
 
           // Query orders to find active shoppers (referred users who placed orders this month)
           const now = new Date();
           const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
           thisMonthStart.setHours(0, 0, 0, 0);
           
-          // Use refereeIds from conversions for active shoppers query
-          const referredUserIds = refereeIds;
+          // Use referredUsers for active shoppers query
+          const referredUserIds = referredUsers?.map(u => u.id) || [];
+          
           let activeShopperIds: string[] = [];
           if (referredUserIds.length > 0) {
             const { data: thisMonthOrders, error: ordersError } = await supabase
@@ -169,8 +174,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             .eq('id', sessionResult.user.id)
             .single();
 
-          // Calculate stats - use refereeIds from conversions (source of truth)
-          const totalReferred = refereeIds.length;
+          // Calculate stats - count ALL users with referred_by = userId
+          const totalReferred = referredUsers?.length || 0;
           const activeReferrers = activeShopperIds.length;
           
           let lifetimeEarnings = 0;
@@ -196,7 +201,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             }, 0);
           }
 
-          setReferralStats({
+          const stats = {
             totalReferred,
             activeReferrers,
             lifetimeEarnings,
@@ -204,8 +209,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             convertedThisMonth: 0,
             lifetimeConverted: 0,
             referrals: [],
-          });
-          console.log('[AuthContext] Referral stats loaded:', lifetimeEarnings);
+          };
+          setReferralStats(stats);
         } catch (error) {
           console.error('[AuthContext] Error loading referral stats:', error);
         }
@@ -226,7 +231,31 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log('[AuthContext] ===== REFRESHING REFERRAL STATS =====');
       console.log('[AuthContext] User ID:', userId);
       
-      // Load referral conversions - this is the source of truth for earnings
+      // First, get the user's referral code
+      const { data: currentUserProfile, error: currentUserError } = await supabase
+        .from('profiles')
+        .select('referral_code')
+        .eq('id', userId)
+        .single();
+
+      if (currentUserError || !currentUserProfile?.referral_code) {
+        console.error('[AuthContext] Error getting user referral code:', currentUserError);
+        throw new Error('Unable to load user referral code');
+      }
+
+      // Query profiles to get ALL referred users (Friends Joined)
+      const { data: referredUsers, error: referredError } = await supabase
+        .from('profiles')
+        .select('id, created_at')
+        .eq('referred_by', currentUserProfile.referral_code);
+
+      if (referredError) {
+        console.error('[AuthContext] Error loading referred users:', referredError);
+      }
+
+      console.log('[AuthContext] Total referred users found:', referredUsers?.length || 0);
+
+      // Load referral conversions - for earnings calculations
       const { data: conversions, error: conversionsError } = await supabase
         .from('referral_conversions')
         .select('*')
@@ -241,11 +270,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (conversions && conversions.length > 0) {
         console.log('[AuthContext] Sample conversion data:', JSON.stringify(conversions[0], null, 2));
       }
-
-      // Get unique referee IDs from conversions (friends joined)
-      const refereeIds = conversions && conversions.length > 0
-        ? [...new Set(conversions.map((c: any) => c.referee_id).filter(Boolean))]
-        : [];
       
       // Query orders to find active shoppers (referred users who placed orders this month)
       const now = new Date();
@@ -281,8 +305,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         .eq('id', userId)
         .single();
 
-      // Calculate friends joined - use refereeIds from conversions (source of truth)
-      const totalReferred = refereeIds.length;
+      // Calculate friends joined - count ALL users with referred_by = userId
+      const totalReferred = referredUsers?.length || 0;
 
       // Calculate active shoppers - referred users who placed orders this month
       const activeReferrers = activeShopperIds.length;
@@ -322,7 +346,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         lifetimeConverted = conversions.length;
       }
 
-      setReferralStats({
+      const stats = {
         totalReferred,
         activeReferrers,
         lifetimeEarnings,
@@ -330,7 +354,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         convertedThisMonth,
         lifetimeConverted,
         referrals: [],
-      });
+      };
+
+      console.log('[AuthContext] ===== CALCULATED STATS =====');
+      console.log('[AuthContext] Friends Joined (totalReferred):', totalReferred);
+      console.log('[AuthContext] Active Shoppers (activeReferrers):', activeReferrers);
+      console.log('[AuthContext] Lifetime Earnings:', lifetimeEarnings);
+      console.log('[AuthContext] This Month Earnings:', thisMonthEarnings);
+      console.log('[AuthContext] Setting stats:', JSON.stringify(stats, null, 2));
+
+      setReferralStats(stats);
       
       console.log('[AuthContext] ===== REFERRAL STATS REFRESHED =====');
       console.log('[AuthContext] Final stats:', {
@@ -528,25 +561,36 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log('[AuthContext] ===== LOADING REFERRAL STATS =====');
       console.log('[AuthContext] User ID:', userData.id);
       
-      // Query referral_conversions to get unique referee IDs (friends joined)
-      // This is the source of truth for referral relationships
-      const { data: conversions, error: conversionsError } = await supabase
-        .from('referral_conversions')
-        .select('referee_id')
-        .eq('referrer_id', userData.id);
-      
-      // Get unique referee IDs
-      const refereeIds = conversions && conversions.length > 0
-        ? [...new Set(conversions.map((c: any) => c.referee_id).filter(Boolean))]
-        : [];
+      // First, get the user's referral code
+      const { data: currentUserProfile, error: currentUserError } = await supabase
+        .from('profiles')
+        .select('referral_code')
+        .eq('id', userData.id)
+        .single();
+
+      if (currentUserError || !currentUserProfile?.referral_code) {
+        console.error('[AuthContext] Error getting user referral code:', currentUserError);
+        throw new Error('Unable to load user referral code');
+      }
+
+      // Query profiles to get ALL referred users (Friends Joined)
+      const { data: referredUsers, error: referredError } = await supabase
+        .from('profiles')
+        .select('id, created_at')
+        .eq('referred_by', currentUserProfile.referral_code);
+
+      if (referredError) {
+        console.error('[AuthContext] Error loading referred users:', referredError);
+      }
 
       // Query orders to find active shoppers (referred users who placed orders this month)
       const now = new Date();
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       thisMonthStart.setHours(0, 0, 0, 0);
       
-      // Use refereeIds from conversions for active shoppers query
-      const referredUserIds = refereeIds;
+      // Use referredUsers for active shoppers query
+      const referredUserIds = referredUsers?.map(u => u.id) || [];
+      
       let activeShopperIds: string[] = [];
       if (referredUserIds.length > 0) {
         const { data: thisMonthOrders, error: ordersError } = await supabase
@@ -575,8 +619,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         .eq('id', userData.id)
         .single();
 
-      // Calculate stats - use refereeIds from conversions (source of truth)
-      const totalReferred = refereeIds.length;
+      // Calculate stats - count ALL users with referred_by = userId
+      const totalReferred = referredUsers?.length || 0;
       const activeReferrers = activeShopperIds.length;
       
       let lifetimeEarnings = 0;

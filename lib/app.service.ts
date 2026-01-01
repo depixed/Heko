@@ -70,7 +70,7 @@ export const appService = {
         const hasRealError = error.code && error.code !== 'PGRST116' && (error.message || error.details || (typeof error === 'object' && Object.keys(error).length > 0 && error !== null));
         // Also check if error is not just null
         if (hasRealError && error !== null && String(error) !== 'null') {
-          console.error('[APP] Error fetching system setting:', error);
+        console.error('[APP] Error fetching system setting:', error);
         }
         return { success: false, error: 'Setting not found' };
       }
@@ -86,7 +86,7 @@ export const appService = {
       // Only log unexpected errors (not "not found" cases or null errors)
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage && !errorMessage.includes('not found') && errorMessage !== 'null' && errorMessage.trim() !== '') {
-        console.error('[APP] Error fetching system setting:', error);
+      console.error('[APP] Error fetching system setting:', error);
       }
       return { success: false, error: 'Failed to fetch system setting' };
     }
