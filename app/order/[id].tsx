@@ -362,7 +362,7 @@ export default function OrderDetailsScreen() {
           </View>
           {order.wallet_used > 0 && (
             <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Wallet Applied (Actual)</Text>
+              <Text style={styles.paymentLabel}>Wallet Applied (Heko Pay)</Text>
               <Text style={[styles.paymentValue, styles.discountText]}>
                 -₹{order.wallet_used.toFixed(2)}
               </Text>

@@ -74,6 +74,7 @@ export default function CheckoutScreen() {
 
   const priceDetails = {
     itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+    totalMrp: cart.reduce((sum, item) => sum + item.product.mrp * item.quantity, 0),
     itemsTotal: cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
     itemDiscount: cart.reduce(
       (sum, item) => sum + (item.product.mrp - item.product.price) * item.quantity,
@@ -546,7 +547,7 @@ export default function CheckoutScreen() {
           <View style={styles.walletCard}>
             <View style={styles.walletCardHeader}>
               <View>
-                <Text style={styles.walletCardTitle}>Actual Wallet</Text>
+                <Text style={styles.walletCardTitle}>Heko Pay Wallet</Text>
                 <Text style={styles.walletCardSubtitle}>Spendable balance</Text>
                 <Text style={styles.walletCardBalance}>₹{wallet.actualBalance.toFixed(2)}</Text>
               </View>
@@ -629,7 +630,7 @@ export default function CheckoutScreen() {
 
           <View style={styles.walletHintBox}>
             <Text style={styles.walletHintText}>
-              Virtual Wallet is not spendable. Convert it to Actual by inviting friends.{' '}
+              Heko Rewards Wallet is not spendable. Convert it to Heko Pay Wallet by inviting friends.{' '}
               <Text
                 style={styles.walletHintLink}
                 onPress={() => router.push('/referral' as any)}
@@ -655,7 +656,7 @@ export default function CheckoutScreen() {
             <Text style={styles.paymentLabel}>
               Items Total ({priceDetails.itemCount})
             </Text>
-            <Text style={styles.paymentValue}>₹{priceDetails.itemsTotal.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>₹{priceDetails.totalMrp.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Item Discount</Text>
@@ -675,7 +676,7 @@ export default function CheckoutScreen() {
           </View>
           {actualApplied > 0 && (
             <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Wallet Applied (Actual)</Text>
+              <Text style={styles.paymentLabel}>Wallet Applied (Heko Pay)</Text>
               <Text style={[styles.paymentValue, styles.paymentDiscount]}>
                 -₹{actualApplied.toFixed(2)}
               </Text>

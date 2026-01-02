@@ -344,7 +344,7 @@ export default function WalletScreen() {
             <View style={styles.iconContainer}>
               <Gift size={32} color="#FFFFFF" />
             </View>
-            <Text style={styles.balanceLabel}>Virtual Wallet</Text>
+            <Text style={styles.balanceLabel}>Heko Rewards Wallet</Text>
             <Text style={styles.balanceAmount}>₹{wallet.virtualBalance.toFixed(2)}</Text>
             <Text style={styles.balanceCaption}>Convertible (not spendable)</Text>
           </TouchableOpacity>
@@ -361,7 +361,7 @@ export default function WalletScreen() {
             <View style={styles.iconContainer}>
               <WalletIcon size={32} color="#FFFFFF" />
             </View>
-            <Text style={styles.balanceLabel}>Actual Wallet</Text>
+            <Text style={styles.balanceLabel}>Heko Pay Wallet</Text>
             <Text style={styles.balanceAmount}>₹{wallet.actualBalance.toFixed(2)}</Text>
             <Text style={styles.balanceCaption}>Spendable</Text>
           </TouchableOpacity>
@@ -370,7 +370,7 @@ export default function WalletScreen() {
         {selectedWalletType !== 'all' && (
           <View style={styles.filterChip}>
             <Text style={styles.filterChipText}>
-              Filtering: {selectedWalletType === 'virtual' ? 'Virtual' : 'Actual'}
+              Filtering: {selectedWalletType === 'virtual' ? 'Heko Rewards Wallet' : 'Heko Pay Wallet'}
             </Text>
           </View>
         )}
@@ -437,7 +437,7 @@ export default function WalletScreen() {
                             <Text style={styles.conversionArrow}>↓</Text>
                           </View>
                           <View style={styles.transactionInfo}>
-                            <Text style={styles.transactionTitle}>From Virtual Wallet</Text>
+                            <Text style={styles.transactionTitle}>From Heko Rewards Wallet</Text>
                             <Text style={styles.transactionSubtitle}>
                               {group.debit.orderId ? `Referee Order #${group.debit.orderId.slice(-6)}` : 'Referral conversion'}
                             </Text>
@@ -461,7 +461,7 @@ export default function WalletScreen() {
                             <Text style={styles.conversionArrow}>↑</Text>
                           </View>
                           <View style={styles.transactionInfo}>
-                            <Text style={styles.transactionTitle}>To Actual Wallet</Text>
+                            <Text style={styles.transactionTitle}>To Heko Pay Wallet</Text>
                             <Text style={styles.transactionSubtitle}>
                               {group.credit.orderId ? `Referee Order #${group.credit.orderId.slice(-6)}` : 'Referral conversion'}
                             </Text>
@@ -495,7 +495,7 @@ export default function WalletScreen() {
                         </Text>
                         <View style={styles.walletTag}>
                           <Text style={styles.walletTagText}>
-                            {txn.walletType === 'virtual' ? 'Virtual' : 'Actual'}
+                            {txn.walletType === 'virtual' ? 'Heko Rewards Wallet' : 'Heko Pay Wallet'}
                           </Text>
                         </View>
                       </View>
@@ -545,7 +545,7 @@ export default function WalletScreen() {
                       {selectedWalletType === type && <View style={styles.radioSelected} />}
                     </View>
                     <Text style={styles.radioLabel}>
-                      {type === 'all' ? 'All' : type === 'virtual' ? 'Virtual' : 'Actual'}
+                      {type === 'all' ? 'All' : type === 'virtual' ? 'Heko Rewards Wallet' : 'Heko Pay Wallet'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -613,7 +613,7 @@ export default function WalletScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Wallet</Text>
                   <Text style={styles.detailValue}>
-                    {selectedTransaction.walletType === 'virtual' ? 'Virtual' : 'Actual'}
+                    {selectedTransaction.walletType === 'virtual' ? 'Heko Rewards Wallet' : 'Heko Pay Wallet'}
                   </Text>
                 </View>
 

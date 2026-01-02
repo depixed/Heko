@@ -201,7 +201,7 @@ export default function ReferralScreen() {
   const openTerms = () => {
     Alert.alert(
       'Referral Terms & Conditions',
-      '• Earn 100% cashback to Virtual on your own orders\n• Share your code with friends\n• When friend orders, 10% of their bill converts from your Virtual → Actual\n• Only Actual Wallet is spendable at checkout\n• No limit on referrals\n• Terms subject to change'
+      '• Earn 100% cashback to Heko Rewards Wallet on your own orders\n• Share your code with friends\n• When friend orders, 10% of their bill converts from your Heko Rewards Wallet → Heko Pay Wallet\n• Only Heko Pay Wallet is spendable at checkout\n• No limit on referrals\n• Terms subject to change'
     );
   };
 
@@ -368,7 +368,7 @@ export default function ReferralScreen() {
           </View>
           <Text style={styles.heroTitle}>Invite friends to convert your cashback into spendable balance</Text>
           <Text style={styles.heroSubtitle}>
-            Share your code and earn 10% of your friend's orders, converted from Virtual to Actual Wallet.
+            Share your code and earn 10% of your friend's orders, converted from Heko Rewards Wallet to Heko Pay Wallet.
           </Text>
         </View>
 
@@ -380,7 +380,7 @@ export default function ReferralScreen() {
                 <Text style={styles.keyPointNumberText}>1</Text>
               </View>
               <Text style={styles.keyPointText}>
-                Earn 100% cashback to Virtual on your own orders.
+                Earn 100% cashback to Heko Rewards Wallet on your own orders.
               </Text>
             </View>
             <View style={styles.keyPointItem}>
@@ -388,7 +388,7 @@ export default function ReferralScreen() {
                 <Text style={styles.keyPointNumberText}>2</Text>
               </View>
               <Text style={styles.keyPointText}>
-                Share your code/link/QR; when your friend orders, you get 10% of their bill converted from your Virtual → to your Actual.
+                Share your code/link/QR; when your friend orders, you get 10% of their bill converted from your Heko Rewards Wallet → to your Heko Pay Wallet.
               </Text>
             </View>
             <View style={styles.keyPointItem}>
@@ -396,7 +396,7 @@ export default function ReferralScreen() {
                 <Text style={styles.keyPointNumberText}>3</Text>
               </View>
               <Text style={styles.keyPointText}>
-                Spend from Actual Wallet on your next orders.
+                Spend from Heko Pay Wallet on your next orders.
               </Text>
             </View>
           </View>

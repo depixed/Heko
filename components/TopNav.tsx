@@ -46,7 +46,7 @@ export default function TopNav({
     }
   };
 
-  const totalBalance = (wallet.virtualBalance + wallet.actualBalance).toFixed(2);
+  const totalBalance = wallet.actualBalance.toFixed(2);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   walletBadge: {
-    backgroundColor: Colors.wallet.virtual,
+    backgroundColor: Colors.wallet.actual,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,

@@ -54,6 +54,7 @@ export default function CartScreen() {
 
   const priceDetails = {
     itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+    totalMrp: cart.reduce((sum, item) => sum + item.product.mrp * item.quantity, 0),
     price: cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
     itemDiscount: cart.reduce(
       (sum, item) => sum + (item.product.mrp - item.product.price) * item.quantity,
@@ -255,7 +256,7 @@ export default function CartScreen() {
             <Text style={styles.paymentLabel}>
               Price ({priceDetails.itemCount} Item{priceDetails.itemCount !== 1 ? 's' : ''})
             </Text>
-            <Text style={styles.paymentValue}>₹{priceDetails.price.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>₹{priceDetails.totalMrp.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Item Discount</Text>

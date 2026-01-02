@@ -109,7 +109,7 @@ export default function ProfileScreen() {
                   <Wallet size={20} color={Colors.text.inverse} />
                 </View>
                 <View>
-                  <Text style={styles.walletLabel}>Virtual Wallet</Text>
+                  <Text style={styles.walletLabel}>Heko Rewards Wallet</Text>
                   <Text style={styles.walletSubtext}>Cashback from purchases</Text>
                 </View>
               </View>
@@ -124,7 +124,7 @@ export default function ProfileScreen() {
                   <Wallet size={20} color={Colors.text.inverse} />
                 </View>
                 <View>
-                  <Text style={styles.walletLabel}>Actual Wallet</Text>
+                  <Text style={styles.walletLabel}>Heko Pay Wallet</Text>
                   <Text style={styles.walletSubtext}>Referral earnings & refunds</Text>
                 </View>
               </View>
