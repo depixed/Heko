@@ -149,9 +149,13 @@ class BannerMonitoring {
       this.imageLoadEvents.shift();
     }
 
-    // Log to console in development
-    if (__DEV__) {
-      console.log('[BannerMonitoring] Image load event:', event);
+    // Only log errors to console in development (reduce console spam)
+    if (__DEV__ && !success) {
+      console.warn('[BannerMonitoring] Image load failed:', { bannerId, loadTime, error });
+    }
+    // Optionally log slow loads (>2 seconds) for performance monitoring
+    if (__DEV__ && success && loadTime > 2000) {
+      console.warn('[BannerMonitoring] Slow image load:', { bannerId, loadTime: `${loadTime}ms` });
     }
   }
 

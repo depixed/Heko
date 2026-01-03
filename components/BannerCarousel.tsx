@@ -85,6 +85,37 @@ const BannerCarousel: React.FC<BannerCarouselProps> = React.memo(({
     }
   }, [onBannerVisible]);
 
+  // Preload next banner image for smoother transitions
+  useEffect(() => {
+    if (banners.length <= 1) return;
+
+    // Preload next banner image (and previous for smooth scrolling)
+    const nextIndex = (currentIndex + 1) % banners.length;
+    const prevIndex = currentIndex === 0 ? banners.length - 1 : currentIndex - 1;
+    
+    const imagesToPreload = [
+      banners[nextIndex]?.image_url,
+      banners[prevIndex]?.image_url,
+    ].filter(Boolean);
+
+    // Preload images on web using link prefetch
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      imagesToPreload.forEach((imageUrl) => {
+        if (imageUrl) {
+          // Check if already prefetched
+          const existingLink = document.querySelector(`link[href="${imageUrl}"]`);
+          if (existingLink) return;
+
+          const link = document.createElement('link');
+          link.rel = 'prefetch';
+          link.as = 'image';
+          link.href = imageUrl;
+          document.head.appendChild(link);
+        }
+      });
+    }
+  }, [currentIndex, banners]);
+
   // Auto-play functionality
   useEffect(() => {
     if (!autoPlay || banners.length <= 1) {

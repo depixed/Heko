@@ -66,8 +66,18 @@ const BannerCard: React.FC<BannerCardProps> = React.memo(({
   // Use web ref for Intersection Observer
   const containerRef = Platform.OS === 'web' ? webTracking.elementRef : null;
 
-  // Only show overlay if there are tags (title or subtitle) to display
-  const hasTags = !!(banner.title || banner.subtitle);
+  // Helper function to check if a string is valid for rendering
+  // Returns true only if the string exists, is not empty, and has non-whitespace content
+  const isValidText = (text: string | null | undefined): boolean => {
+    return typeof text === 'string' && text.trim().length > 0;
+  };
+
+  // Get validated title and subtitle (trimmed and validated)
+  const validTitle = isValidText(banner.title) ? banner.title.trim() : null;
+  const validSubtitle = isValidText(banner.subtitle) ? banner.subtitle.trim() : null;
+
+  // Only show overlay if there are valid tags (title or subtitle) to display
+  const hasTags = !!(validTitle || validSubtitle);
 
   return (
     <TouchableOpacity
@@ -76,7 +86,7 @@ const BannerCard: React.FC<BannerCardProps> = React.memo(({
       onPress={handlePress}
       activeOpacity={0.9}
       accessibilityRole="button"
-      accessibilityLabel={banner.title || 'Banner'}
+      accessibilityLabel={validTitle || 'Banner'}
     >
       <BannerImage
         uri={banner.image_url}
@@ -90,27 +100,18 @@ const BannerCard: React.FC<BannerCardProps> = React.memo(({
       />
       
       {hasTags && (
-        // Gradient overlay - hidden for now, can be restored later
-        // <LinearGradient
-        //   colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)']}
-        //   locations={[0, 0.3, 0.6, 1]}
-        //   start={{ x: 0, y: 1 }}
-        //   end={{ x: 0, y: 0.5 }}
-        //   style={styles.overlay}
-        // >
-          <View style={styles.overlayContent}>
-            {banner.title && (
-              <Text style={styles.title} numberOfLines={2}>
-                {banner.title}
-              </Text>
-            )}
-            {banner.subtitle && (
-              <Text style={styles.subtitle} numberOfLines={2}>
-                {banner.subtitle}
-              </Text>
-            )}
-          </View>
-        // </LinearGradient>
+        <View style={styles.overlayContent}>
+          {validTitle && (
+            <Text style={styles.title} numberOfLines={2}>
+              {validTitle}
+            </Text>
+          )}
+          {validSubtitle && (
+            <Text style={styles.subtitle} numberOfLines={2}>
+              {validSubtitle}
+            </Text>
+          )}
+        </View>
       )}
     </TouchableOpacity>
   );

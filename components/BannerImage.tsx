@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Platform, ActivityIndicator, Image as RNImage } from 'react-native';
 import Colors from '@/constants/colors';
 import { bannerMonitoring } from '@/utils/bannerMonitoring';
@@ -41,21 +41,69 @@ const BannerImage: React.FC<BannerImageProps> = ({
   onLoadEnd,
   onError,
 }) => {
-  const [loading, setLoading] = useState(true);
+  // Start with loading false - image should be visible immediately
+  // Loading state will be managed by onLoadStart/onLoadEnd events
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const loadStartTimeRef = useRef<number | null>(null);
+  const imageRef = useRef<any>(null);
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedRef = useRef<boolean>(false); // Track if image has ever loaded
 
   // Convert WebP URLs if needed (expo-image handles this automatically)
-  const optimizedUri = optimizeImageUrl(uri);
+  // Calculate optimal width based on screen size (2x for retina)
+  const optimizedUri = optimizeImageUrl(uri, priority);
+
+  // Fallback: Clear loading state after a timeout to prevent stuck loaders
+  // Only set timeout if we actually started loading (loadStartTimeRef is set)
+  useEffect(() => {
+    if (loading && loadStartTimeRef.current && !hasLoadedRef.current) {
+      // Clear any existing timeout
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+      
+      // Set a timeout to force clear loading state after 5 seconds
+      // Only if we actually started loading and haven't loaded yet
+      loadTimeoutRef.current = setTimeout(() => {
+        if (loading && loadStartTimeRef.current && !hasLoadedRef.current) {
+          // Only warn in dev mode to reduce console noise
+          if (__DEV__) {
+            console.warn('[BannerImage] Image load timeout, clearing loading state', { bannerId });
+          }
+          setLoading(false);
+          loadStartTimeRef.current = null;
+        }
+      }, 5000);
+    }
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
+  }, [loading, bannerId, optimizedUri]);
 
   const handleLoadStart = () => {
-    loadStartTimeRef.current = Date.now();
-    setLoading(true);
-    setError(false);
-    onLoadStart?.();
+    // Only set loading if we haven't already loaded
+    if (!hasLoadedRef.current) {
+      loadStartTimeRef.current = Date.now();
+      setLoading(true);
+      setError(false);
+      onLoadStart?.();
+    }
   };
 
   const handleLoadEnd = () => {
+    // Mark as loaded
+    hasLoadedRef.current = true;
+    
+    // Clear timeout if image loads successfully
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+    
     setLoading(false);
     
     // Log successful image load
@@ -68,7 +116,22 @@ const BannerImage: React.FC<BannerImageProps> = ({
     onLoadEnd?.();
   };
 
+  // Additional handler for web - onLoad event as backup
+  const handleLoad = () => {
+    // This is a backup for onLoadEnd which might not fire on web
+    // Only call handleLoadEnd if we haven't already loaded
+    if (!hasLoadedRef.current) {
+      handleLoadEnd();
+    }
+  };
+
   const handleError = () => {
+    // Clear timeout on error
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+    
     setLoading(false);
     setError(true);
     
@@ -84,7 +147,7 @@ const BannerImage: React.FC<BannerImageProps> = ({
 
   // Use expo-image on native for better caching, React Native Image on web
   if (Platform.OS === 'web' || !ExpoImage) {
-    // Web: Use standard Image with browser caching
+    // Web: Use standard Image with browser caching and eager loading for high priority
     return (
       <View style={[styles.container, style]}>
         {loading && (
@@ -93,10 +156,12 @@ const BannerImage: React.FC<BannerImageProps> = ({
           </View>
         )}
         <RNImage
+          ref={imageRef}
           source={{ uri: optimizedUri }}
           style={[styles.image, style, loading && styles.imageLoading]}
           resizeMode={resizeMode}
           onLoadStart={handleLoadStart}
+          onLoad={handleLoad}
           onLoadEnd={handleLoadEnd}
           onError={handleError}
         />
@@ -132,8 +197,9 @@ const BannerImage: React.FC<BannerImageProps> = ({
  * Optimizes image URL for better performance
  * - Converts to WebP if supported (only for Supabase storage URLs)
  * - Adds query parameters for optimization
+ * - Adjusts quality and width based on priority
  */
-const optimizeImageUrl = (uri: string): string => {
+const optimizeImageUrl = (uri: string, priority: 'low' | 'normal' | 'high' = 'high'): string => {
   if (!uri || typeof uri !== 'string') {
     return uri;
   }
@@ -147,14 +213,24 @@ const optimizeImageUrl = (uri: string): string => {
     return uri; // Return as-is for other URLs
   }
 
+  // If URL already has query params, check if it's already optimized
+  if (uri.includes('format=webp') || uri.includes('quality=')) {
+    return uri; // Already optimized
+  }
+
   // If URL already has query params, append to them
   const separator = uri.includes('?') ? '&' : '?';
   
+  // Calculate optimal width: 320px banner * 2 for retina = 640px
+  // For low priority, use smaller width to reduce bandwidth
+  const width = priority === 'low' ? 480 : 640;
+  const quality = priority === 'low' ? 75 : 85; // Lower quality for low priority
+  
   // Add optimization parameters (Supabase storage supports these)
   const optimizations = [
-    'format=webp', // Prefer WebP format
-    'quality=85', // Good quality with smaller size
-    'width=640', // Optimize for banner width (2x for retina)
+    'format=webp', // Prefer WebP format (smaller file size)
+    `quality=${quality}`, // Adjust quality based on priority
+    `width=${width}`, // Optimize for banner width (2x for retina)
   ];
 
   return `${uri}${separator}${optimizations.join('&')}`;
@@ -170,7 +246,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   imageLoading: {
-    opacity: 0,
+    opacity: 0.3, // Show image with reduced opacity while loading instead of hiding it
   },
   placeholder: {
     position: 'absolute',
