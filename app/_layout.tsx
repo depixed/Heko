@@ -160,20 +160,18 @@ export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
     
-    // Handle unhandled promise rejections
-    const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
-      console.error('[RootLayout] Unhandled promise rejection:', event.reason);
-    };
-    
-    if (typeof window !== 'undefined') {
+    // Only set up unhandled rejection handler on web
+    if (Platform.OS === 'web') {
+      const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
+        console.error('[RootLayout] Unhandled promise rejection:', event.reason);
+      };
+      
       window.addEventListener('unhandledrejection', unhandledRejectionHandler);
-    }
-    
-    return () => {
-      if (typeof window !== 'undefined') {
+      
+      return () => {
         window.removeEventListener('unhandledrejection', unhandledRejectionHandler);
-      }
-    };
+      };
+    }
   }, []);
 
   return (
