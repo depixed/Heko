@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +18,6 @@ export default function OTPScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -27,14 +26,10 @@ export default function OTPScreen() {
     }
   }, [countdown]);
 
-  const handleOTPChange = (value: string, index: number) => {
-    const newOtp = otp.split('');
-    newOtp[index] = value;
-    setOtp(newOtp.join(''));
-
-    if (value && index < APP_CONFIG.OTP.LENGTH - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
+  const handleOTPChange = (value: string) => {
+    // Only allow numeric input and limit to OTP length
+    const numericValue = value.replace(/[^0-9]/g, '').slice(0, APP_CONFIG.OTP.LENGTH);
+    setOtp(numericValue);
   };
 
   const handleVerifyOTP = async () => {
@@ -214,18 +209,17 @@ export default function OTPScreen() {
         </View>
 
         <View style={styles.otpContainer}>
-          {Array.from({ length: APP_CONFIG.OTP.LENGTH }).map((_, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => { inputRefs.current[index] = ref; }}
-              style={styles.otpInput}
-              keyboardType="number-pad"
-              maxLength={1}
-              value={otp[index] || ''}
-              onChangeText={(value) => handleOTPChange(value, index)}
-              testID={`otp-input-${index}`}
-            />
-          ))}
+          <TextInput
+            style={styles.otpInput}
+            placeholder="Enter OTP"
+            placeholderTextColor={Colors.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={APP_CONFIG.OTP.LENGTH}
+            value={otp}
+            onChangeText={handleOTPChange}
+            autoFocus={true}
+            testID="otp-input"
+          />
         </View>
 
         <TouchableOpacity
@@ -326,12 +320,10 @@ const styles = StyleSheet.create({
     color: Colors.brand.primary,
   },
   otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 32,
   },
   otpInput: {
-    width: 48,
+    width: '100%',
     height: 56,
     borderWidth: 1,
     borderColor: Colors.border.light,
@@ -341,6 +333,7 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.text.primary,
     backgroundColor: Colors.background.secondary,
+    paddingHorizontal: 16,
   },
   button: {
     backgroundColor: Colors.border.light,
