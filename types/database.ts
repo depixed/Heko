@@ -19,6 +19,9 @@ export interface Database {
           referred_by: string | null;
           virtual_wallet: number;
           actual_wallet: number;
+          password_hash: string | null;
+          password_set_at: string | null;
+          last_password_change: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -31,6 +34,9 @@ export interface Database {
           referred_by?: string | null;
           virtual_wallet?: number;
           actual_wallet?: number;
+          password_hash?: string | null;
+          password_set_at?: string | null;
+          last_password_change?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -43,6 +49,9 @@ export interface Database {
           referred_by?: string | null;
           virtual_wallet?: number;
           actual_wallet?: number;
+          password_hash?: string | null;
+          password_set_at?: string | null;
+          last_password_change?: string | null;
           created_at?: string;
           updated_at?: string;
         };

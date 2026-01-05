@@ -15,59 +15,200 @@ export const authService = {
     try {
       console.log('[AUTH] Sending OTP to:', phone, 'mode:', mode);
       
-      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-
-      const response = await fetch(`${FUNCTIONS_URL}/customer-send-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
-          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ phone: formattedPhone }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        console.error('[AUTH] Error sending OTP:', data);
-        return { success: false, error: data.error || 'Failed to send OTP' };
-      }
-
-      console.log('[AUTH] OTP sent successfully', data.otp ? `(dev: ${data.otp})` : '');
-      return { success: true, otp: data.otp };
+      // Use MSG91 service for sending OTP
+      const { msg91Service } = await import('@/lib/msg91.service');
+      await msg91Service.sendOtp(phone);
+      
+      console.log('[AUTH] OTP sent successfully via MSG91');
+      return { success: true };
     } catch (error) {
       console.error('[AUTH] Error sending OTP:', error);
-      return { success: false, error: 'Failed to send OTP' };
+      if (error instanceof Error) {
+        console.error('[AUTH] Error details:', error.message, error.stack);
+      }
+      return { 
+        success: false, 
+        error: error instanceof Error ? `Network error: ${error.message}` : 'Failed to send OTP' 
+      };
     }
   },
 
-  async verifyOTPLogin(phone: string, otp: string): Promise<{ success: boolean; user?: User; token?: string; isNewUser?: boolean; error?: string }> {
+  // Deprecated: Use msg91Service.verifyOtp() + verifyMsg91Token() instead
+  // These methods are kept for backward compatibility but should not be used
+  // The new flow: msg91Service.verifyOtp() -> verifyMsg91Token()
+
+  async loginWithPassword(phone: string, password: string): Promise<{ success: boolean; user?: User; token?: string; phoneNotRegistered?: boolean; needsPassword?: boolean; error?: string }> {
     try {
-      console.log('[AUTH] Verifying OTP for login:', phone);
+      console.log('[AUTH] Logging in with password:', phone);
       
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
 
-      const response = await fetch(`${FUNCTIONS_URL}/customer-verify-otp`, {
+      const response = await fetch(`${FUNCTIONS_URL}/customer-login-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ phone: formattedPhone, otp }),
+        body: JSON.stringify({ phone: formattedPhone, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        console.error('[AUTH] Error verifying OTP:', data);
-        return { success: false, error: data.error || 'Invalid OTP' };
+        console.error('[AUTH] Error logging in with password:', data);
+        return { 
+          success: false, 
+          error: data.error || 'Failed to login',
+          phoneNotRegistered: data.phoneNotRegistered,
+          needsPassword: data.needsPassword,
+        };
+      }
+
+      if (!data.user || !data.sessionToken) {
+        return { success: false, error: 'Invalid response from server' };
+      }
+
+      const user: User = {
+        id: data.user.id,
+        name: data.user.name,
+        phone: data.user.phone,
+        email: data.user.email || undefined,
+        referralId: data.user.referral_code,
+        referredBy: data.user.referred_by || undefined,
+        createdAt: data.user.created_at,
+      };
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, token: data.sessionToken }));
+
+      console.log('[AUTH] Login with password successful for user:', user.id);
+      return { success: true, user, token: data.sessionToken };
+    } catch (error) {
+      console.error('[AUTH] Error logging in with password:', error);
+      return { success: false, error: 'Failed to login' };
+    }
+  },
+
+  async checkPhoneExists(phone: string): Promise<{ success: boolean; exists?: boolean; error?: string }> {
+    try {
+      console.log('[AUTH] Checking if phone exists:', phone);
+      
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', formattedPhone)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[AUTH] Error checking phone:', error);
+        return { success: false, error: 'Failed to check phone number' };
+      }
+
+      return { success: true, exists: !!data };
+    } catch (error) {
+      console.error('[AUTH] Error checking phone:', error);
+      return { success: false, error: 'Failed to check phone number' };
+    }
+  },
+
+  async resetPassword(phone: string, otp: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[AUTH] Resetting password for:', phone);
+      
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+      const response = await fetch(`${FUNCTIONS_URL}/customer-reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ phone: formattedPhone, otp, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('[AUTH] Error resetting password:', data);
+        return { success: false, error: data.error || 'Failed to reset password' };
+      }
+
+      console.log('[AUTH] Password reset successful');
+      return { success: true };
+    } catch (error) {
+      console.error('[AUTH] Error resetting password:', error);
+      return { success: false, error: 'Failed to reset password' };
+    }
+  },
+
+  async setPasswordForExistingUser(userId: string, password: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[AUTH] Setting password for existing user:', userId);
+
+      const response = await fetch(`${FUNCTIONS_URL}/customer-set-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ userId, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('[AUTH] Error setting password:', data);
+        return { success: false, error: data.error || 'Failed to set password' };
+      }
+
+      console.log('[AUTH] Password set successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('[AUTH] Error setting password:', error);
+      return { success: false, error: 'Failed to set password' };
+    }
+  },
+
+  async verifyMsg91Token(accessToken: string, phone: string): Promise<{ 
+    success: boolean; 
+    isNewUser?: boolean; 
+    user?: User; 
+    token?: string; 
+    phone?: string;
+    error?: string 
+  }> {
+    try {
+      console.log('[AUTH] Verifying MSG91 token for:', phone);
+      
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+      const response = await fetch(`${FUNCTIONS_URL}/customer-verify-msg91-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ 
+          accessToken, 
+          phone: formattedPhone 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('[AUTH] Error verifying MSG91 token:', data);
+        return { success: false, error: data.error || 'Failed to verify token' };
       }
 
       if (data.isNewUser) {
-        console.log('[AUTH] New user detected during login, redirecting to signup');
-        return { success: true, isNewUser: true };
+        console.log('[AUTH] New user detected');
+        return { success: true, isNewUser: true, phone: data.phone };
       }
 
       if (!data.user || !data.sessionToken) {
@@ -89,43 +230,8 @@ export const authService = {
       console.log('[AUTH] Login successful for user:', user.id);
       return { success: true, user, token: data.sessionToken };
     } catch (error) {
-      console.error('[AUTH] Error verifying OTP:', error);
-      return { success: false, error: 'Failed to verify OTP' };
-    }
-  },
-
-  async verifyOTPSignup(phone: string, otp: string): Promise<{ success: boolean; isNewUser?: boolean; error?: string }> {
-    try {
-      console.log('[AUTH] Verifying OTP for signup:', phone);
-      
-      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-
-      const response = await fetch(`${FUNCTIONS_URL}/customer-verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
-          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ phone: formattedPhone, otp }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        console.error('[AUTH] Error verifying OTP:', data);
-        return { success: false, error: data.error || 'Invalid OTP' };
-      }
-
-      if (!data.isNewUser) {
-        return { success: false, error: 'Phone number already registered. Please login instead.' };
-      }
-
-      console.log('[AUTH] OTP verified for new user');
-      return { success: true, isNewUser: true };
-    } catch (error) {
-      console.error('[AUTH] Error verifying OTP for signup:', error);
-      return { success: false, error: 'Failed to verify OTP' };
+      console.error('[AUTH] Error verifying MSG91 token:', error);
+      return { success: false, error: 'Failed to verify token' };
     }
   },
 
@@ -145,8 +251,9 @@ export const authService = {
         body: JSON.stringify({
           phone: formattedPhone,
           name: data.name,
-          email: data.email || undefined,
+          email: data.email || undefined, // Optional
           referredBy: data.referredBy || undefined,
+          // NO PASSWORD - removed
         }),
       });
 
@@ -309,7 +416,13 @@ export const authService = {
         return { success: false, error: 'Referral code not found' };
       }
 
-      return { success: true, referrer: { id: data.id, name: data.name } };
+      // Type guard to ensure data has required fields
+      const referrerData = data as { id: string; name: string } | null;
+      if (!referrerData || !referrerData.id || !referrerData.name) {
+        return { success: false, error: 'Referral code not found' };
+      }
+
+      return { success: true, referrer: { id: referrerData.id, name: referrerData.name } };
     } catch (error) {
       console.error('[AUTH] Error looking up referrer:', error);
       return { success: false, error: 'Failed to lookup referrer' };

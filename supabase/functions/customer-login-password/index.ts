@@ -1,14 +1,14 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -28,100 +28,65 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
-    const { phone, otp } = await req.json()
+    const { phone, password } = await req.json()
 
-    if (!phone || !otp) {
+    if (!phone || !password) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Phone and OTP are required' }),
+        JSON.stringify({ success: false, error: 'Phone and password are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Format phone number (same logic as send-otp)
-    let formattedPhone = phone;
-    if (phone.startsWith('+')) {
-      formattedPhone = phone.substring(1);
-    }
-    if (!formattedPhone.startsWith('91')) {
-      formattedPhone = `91${formattedPhone}`;
-    }
-    const mobileNumber = formattedPhone.slice(-10);
-
-    // Validate Indian mobile number
-    if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Invalid Indian mobile number format' 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get MSG91 credentials
-    const authKey = Deno.env.get('MSG91_AUTH_KEY')
-
-    if (!authKey) {
-      console.error('Missing MSG91 credentials')
-      return new Response(
-        JSON.stringify({ success: false, error: 'SMS service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Verify OTP using MSG91 API
-    const msg91Url = 'https://control.msg91.com/api/v5/otp/verify';
-    
-    const msg91Response = await fetch(msg91Url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        mobile: mobileNumber,
-        otp: otp.toString(),
-        authkey: authKey,
-      }),
-    })
-
-    const msg91Result = await msg91Response.json()
-
-    if (!msg91Response.ok || msg91Result.type !== 'success') {
-      console.error('MSG91 Verify OTP error:', msg91Result)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: msg91Result.message || 'Invalid or expired OTP' 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log(`OTP verified for ${mobileNumber}, type: ${msg91Result.type}`)
-
-    // Store phone in E.164 format for database
-    const phoneE164 = `+91${mobileNumber}`
+    // Format phone number
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`
 
     // Check if user exists
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('phone', phoneE164)
+      .eq('phone', formattedPhone)
       .single()
 
     if (profileError || !profile) {
-      // New user - need to complete signup
+      // Phone not registered
       return new Response(
         JSON.stringify({
-          success: true,
-          isNewUser: true,
-          phone: phoneE164
+          success: false,
+          phoneNotRegistered: true,
+          error: 'This phone number is not registered. Please sign up first.'
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Existing user - create session and return user data
+    // Check if user has set a password
+    if (!profile.password_hash) {
+      // User exists but hasn't set a password yet (existing user from OTP-only era)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          needsPassword: true,
+          userId: profile.id,
+          error: 'This account needs a password. Please use OTP login or set up a password.'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, profile.password_hash)
+
+    if (!passwordMatch) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid password. Please try again.'
+        }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Create session token
     const sessionToken = crypto.randomUUID()
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30) // 30 days expiry
@@ -145,7 +110,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        isNewUser: false,
         sessionToken,
         user: {
           id: profile.id,
@@ -169,3 +133,4 @@ serve(async (req) => {
     )
   }
 })
+

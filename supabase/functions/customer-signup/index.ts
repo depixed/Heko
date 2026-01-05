@@ -1,192 +1,196 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
-Deno.serve(async (req) => {
+// Password validation regex: min 8 chars, 1 uppercase, 1 lowercase, 1 number
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
+
+// Email validation regex
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Phone validation regex (E.164 format)
+const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Check for authorization header
-    const authHeader = req.headers.get('authorization')
-    const apiKey = req.headers.get('apikey')
+    const { phone, name, email, password, referredBy } = await req.json();
     
-    if (!authHeader && !apiKey) {
+    // Validate required fields
+    if (!phone) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-    const { phone, name, email, referredBy } = await req.json()
-
-    if (!phone || !name) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Phone and name are required' }),
+        JSON.stringify({ success: false, error: 'Phone number is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
-    // Generate 4-digit alphanumeric referral code
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let referralCode = ''
-    for (let i = 0; i < 4; i++) {
-      referralCode += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    
-    // Generate UUID for profile
-    const profileId = crypto.randomUUID()
-
-    // Validate referral code if provided
-    let referrerId = null
-    if (referredBy) {
-      const { data: referrer } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('referral_code', referredBy)
-        .single()
-      
-      if (referrer) {
-        referrerId = referrer.id
-      }
+    if (!name) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Name is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Create profile with explicit ID
+    if (!email) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Email is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!password) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Password is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate phone format
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/^0+/, '')}`;
+    if (!phoneRegex.test(formattedPhone)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid phone number format', invalidPhone: true }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate email format
+    if (!emailRegex.test(email)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid email format', invalidEmail: true }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate password policy
+    if (!passwordRegex.test(password)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Password must be 8-128 characters with at least 1 uppercase, 1 lowercase, and 1 number',
+          invalidPassword: true 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Initialize Supabase client with service role
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if phone already exists
+    const { data: existingPhone } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('phone', formattedPhone)
+      .single();
+
+    if (existingPhone) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Phone number already registered', phoneExists: true }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if email already exists
+    const { data: existingEmail } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase().trim())
+      .single();
+
+    if (existingEmail) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Email already registered', emailExists: true }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Hash the password
+    const passwordHash = await bcrypt.hash(password);
+
+    // Generate 4-character alphanumeric referral code
+    const referralCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const profileId = crypto.randomUUID();
+
+    // Create profile with password
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .insert({
         id: profileId,
-        phone,
-        name,
-        email: email || null,
+        name: name.trim(),
+        phone: formattedPhone,
+        email: email.toLowerCase().trim(),
+        password_hash: passwordHash,
+        password_set_at: new Date().toISOString(),
         referral_code: referralCode,
-        referred_by: referrerId,
-        virtual_wallet: 0,
-        actual_wallet: 0,
-        status: 'active'
+        referred_by: referredBy || null,
+        status: 'active',
       })
       .select()
-      .single()
+      .single();
 
-    if (profileError) {
-      console.error('Error creating profile:', profileError)
+    if (profileError || !profile) {
+      console.error('Error creating profile:', profileError);
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to create profile' }),
+        JSON.stringify({ success: false, error: profileError?.message || 'Failed to create user profile' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
-    // Create user_role entry
+    // Assign customer role
     const { error: roleError } = await supabase
       .from('user_roles')
       .insert({
-        user_id: profileId,
-        role: 'user'
-      })
+        user_id: profile.id,
+        role: 'customer',
+      });
 
     if (roleError) {
-      console.error('Error creating user role:', roleError)
-      // Don't fail the whole operation if role creation fails
+      console.error('Error assigning role:', roleError);
     }
 
-    // Create session token
-    const sessionToken = crypto.randomUUID()
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30) // 30 days expiry
+    // Generate session token
+    const sessionToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-    const { error: sessionError } = await supabase
+    await supabase
       .from('customer_sessions')
       .insert({
-        user_id: profileId,
+        user_id: profile.id,
         session_token: sessionToken,
-        expires_at: expiresAt.toISOString()
-      })
+        expires_at: expiresAt.toISOString(),
+      });
 
-    if (sessionError) {
-      console.error('Error creating session:', sessionError)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to create session' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Remove password_hash from response
+    const { password_hash, ...userWithoutPassword } = profile;
 
-    // Award referral bonus if applicable
-    if (referrerId) {
-      const REFERRAL_BONUS = 50 // ₹50 bonus
-      
-      await supabase
-        .from('profiles')
-        .update({
-          virtual_wallet: supabase.rpc('increment_wallet', { amount: REFERRAL_BONUS })
-        })
-        .eq('id', referrerId)
-
-      // Create wallet transaction for referrer
-      await supabase
-        .from('wallet_transactions')
-        .insert({
-          user_id: referrerId,
-          amount: REFERRAL_BONUS,
-          type: 'credit',
-          wallet_type: 'virtual',
-          description: `Referral bonus for inviting ${name}`,
-          status: 'completed'
-        })
-
-      // Create wallet transaction for new user
-      await supabase
-        .from('wallet_transactions')
-        .insert({
-          user_id: profileId,
-          amount: REFERRAL_BONUS,
-          type: 'credit',
-          wallet_type: 'virtual',
-          description: `Welcome bonus for using referral code ${referredBy}`,
-          status: 'completed'
-        })
-
-      // Update new user's wallet
-      await supabase
-        .from('profiles')
-        .update({
-          virtual_wallet: REFERRAL_BONUS
-        })
-        .eq('id', profileId)
-
-      profile.virtual_wallet = REFERRAL_BONUS
-    }
+    console.log('Customer signup successful:', { phone: formattedPhone, email: email.toLowerCase().trim() });
 
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         success: true,
         sessionToken,
-        user: {
-          id: profile.id,
-          name: profile.name,
-          phone: profile.phone,
-          email: profile.email,
-          referral_code: profile.referral_code,
-          virtual_wallet: profile.virtual_wallet,
-          actual_wallet: profile.actual_wallet,
-          created_at: profile.created_at
-        }
+        user: userWithoutPassword
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
+
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error in customer-signup:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ success: false, error: 'Internal server error' }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
   }
-})
+});

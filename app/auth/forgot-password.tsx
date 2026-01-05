@@ -5,72 +5,53 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { authService } from '@/lib/auth.service';
-import { useAuth } from '@/contexts/AuthContext';
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { login } = useAuth();
   const [phone, setPhone] = useState('');
-  const [isSendingOTP, setIsSendingOTP] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleOTPLogin = async () => {
+  const handleSendOTP = async () => {
     if (phone.length !== 10) {
       Alert.alert('Invalid Phone', 'Please enter a valid 10-digit mobile number');
       return;
     }
 
-    setIsSendingOTP(true);
+    setIsSending(true);
     try {
-      console.log('[Login] Sending OTP for:', phone);
-      const result = await authService.sendOTP(phone, 'login');
+      // First check if phone exists
+      const checkResult = await authService.checkPhoneExists(phone);
       
-      if (result.success) {
-        console.log('[Login] OTP sent successfully, navigating to OTP screen');
-        router.push({ pathname: '/auth/otp' as any, params: { phone, mode: 'login' } });
-      } else {
-        console.error('[Login] Failed to send OTP:', result.error);
-        
-        // Provide user-friendly error messages
-        let errorMessage = result.error || 'Failed to send OTP';
-        if (errorMessage.includes('Authenticate') || errorMessage.includes('Authentication')) {
-          errorMessage = 'Unable to connect to authentication service. Please check your internet connection and try again. If the problem persists, the service may be temporarily unavailable.';
-        }
-        
+      if (checkResult.success && !checkResult.exists) {
         Alert.alert(
-          'Unable to Send OTP',
-          errorMessage,
+          'Account Not Found',
+          'This phone number is not registered. Please sign up first.',
           [
-            { text: 'OK', style: 'default' },
-            { 
-              text: 'Try Again', 
-              onPress: () => {
-                // Retry after a short delay
-                setTimeout(() => handleOTPLogin(), 1000);
-              }
-            }
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign Up', onPress: () => router.push('/auth/signup' as any) },
           ]
         );
+        setIsSending(false);
+        return;
+      }
+
+      // Send OTP for password reset
+      const result = await authService.sendOTP(phone, 'login');
+      if (result.success) {
+        router.push({ 
+          pathname: '/auth/reset-password' as any, 
+          params: { phone } 
+        });
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send OTP');
       }
     } catch (error) {
-      console.error('[Login] Error sending OTP:', error);
-      Alert.alert(
-        'Connection Error',
-        'Failed to connect to the server. Please check your internet connection and try again.',
-        [
-          { text: 'OK', style: 'default' },
-          { 
-            text: 'Retry', 
-            onPress: () => {
-              setTimeout(() => handleOTPLogin(), 1000);
-            }
-          }
-        ]
-      );
+      console.error('[ForgotPassword] Error sending OTP:', error);
+      Alert.alert('Error', 'Failed to send OTP');
     } finally {
-      setIsSendingOTP(false);
+      setIsSending(false);
     }
   };
-
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -84,37 +65,39 @@ export default function LoginScreen() {
         <Text style={styles.logoText}>HEKO</Text>
         <View style={styles.headerSpacer} />
       </View>
+      
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome back!</Text>
-          <Text style={styles.subtitle}>Login to continue shopping</Text>
+          <Text style={styles.title}>Forgot Password?</Text>
+          <Text style={styles.subtitle}>
+            Enter your registered mobile number and we&apos;ll send you an OTP to reset your password
+          </Text>
         </View>
 
         <View style={styles.form}>
-          <View>
-            <Text style={styles.label}>Mobile Number</Text>
-            <View style={styles.phoneInput}>
-              <Text style={styles.countryCode}>+91</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter 10-digit mobile number"
-                placeholderTextColor={Colors.text.tertiary}
-                keyboardType="phone-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={setPhone}
-                testID="phone-input"
-              />
-            </View>
+          <Text style={styles.label}>Mobile Number</Text>
+          <View style={styles.phoneInput}>
+            <Text style={styles.countryCode}>+91</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter 10-digit mobile number"
+              placeholderTextColor={Colors.text.tertiary}
+              keyboardType="phone-pad"
+              maxLength={10}
+              value={phone}
+              onChangeText={setPhone}
+              testID="phone-input"
+              autoFocus
+            />
           </View>
 
           <TouchableOpacity
-            style={[styles.button, phone.length === 10 && !isSendingOTP && styles.buttonActive]}
-            onPress={handleOTPLogin}
-            disabled={phone.length !== 10 || isSendingOTP}
-            testID="login-button"
+            style={[styles.button, phone.length === 10 && !isSending && styles.buttonActive]}
+            onPress={handleSendOTP}
+            disabled={phone.length !== 10 || isSending}
+            testID="send-otp-button"
           >
-            {isSendingOTP ? (
+            {isSending ? (
               <ActivityIndicator color={Colors.text.inverse} />
             ) : (
               <Text style={styles.buttonText}>Send OTP</Text>
@@ -123,10 +106,10 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.linkButton}
-            onPress={() => router.push('/auth/signup' as any)}
+            onPress={() => router.push('/auth/login' as any)}
           >
             <Text style={styles.linkText}>
-              Don&apos;t have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
+              Remember your password? <Text style={styles.linkTextBold}>Login</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -181,6 +164,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text.secondary,
     marginTop: 8,
+    lineHeight: 24,
   },
   form: {
     gap: 24,
@@ -238,36 +222,5 @@ const styles = StyleSheet.create({
     color: Colors.brand.primary,
     fontWeight: '600' as const,
   },
-  linkRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: -8,
-    gap: 8,
-  },
-  forgotButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  forgotText: {
-    fontSize: 14,
-    color: Colors.brand.primary,
-    fontWeight: '600' as const,
-  },
-  otpLoginButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: Colors.background.secondary,
-    borderWidth: 1,
-    borderColor: Colors.brand.primary,
-    minHeight: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  otpLoginText: {
-    fontSize: 14,
-    color: Colors.brand.primary,
-    fontWeight: '600' as const,
-  },
 });
+

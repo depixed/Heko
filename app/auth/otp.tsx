@@ -6,18 +6,29 @@ import Colors from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/lib/auth.service';
+import { msg91Service } from '@/lib/msg91.service';
+
+type FlowStage = 'otp' | 'profile';
 
 export default function OTPScreen() {
   const router = useRouter();
   const { phone, mode, referralCode } = useLocalSearchParams<{ phone: string; mode: 'login' | 'signup'; referralCode?: string }>();
   const { login } = useAuth();
+  const [stage, setStage] = useState<FlowStage>('otp');
   const [otp, setOtp] = useState('');
   const [countdown, setCountdown] = useState<number>(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    // MSG91 service is initialized in root layout, no need to initialize here
+    // Just ensure it's ready
+    msg91Service.initialize().catch((error) => {
+      console.error('[OTP] Failed to initialize MSG91:', error);
+    });
+  }, []);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -27,14 +38,14 @@ export default function OTPScreen() {
   }, [countdown]);
 
   const handleOTPChange = (value: string) => {
-    // Only allow numeric input and limit to OTP length
-    const numericValue = value.replace(/[^0-9]/g, '').slice(0, APP_CONFIG.OTP.LENGTH);
+    // MSG91 widget configured for 4-digit OTP
+    const numericValue = value.replace(/[^0-9]/g, '').slice(0, 4);
     setOtp(numericValue);
   };
 
   const handleVerifyOTP = async () => {
-    if (otp.length !== APP_CONFIG.OTP.LENGTH) {
-      Alert.alert('Invalid OTP', 'Please enter the complete OTP');
+    if (otp.length !== 4) {
+      Alert.alert('Invalid OTP', 'Please enter the complete 4-digit OTP');
       return;
     }
 
@@ -45,31 +56,30 @@ export default function OTPScreen() {
 
     setIsVerifying(true);
     try {
-      if (mode === 'login') {
-        const result = await authService.verifyOTPLogin(phone, otp);
-        
-        if (result.success && result.isNewUser) {
-          // New user detected during login - redirect to signup flow
-          setOtpVerified(true);
-        } else if (result.success && result.user && result.token) {
-          // Existing user - proceed with login
-          await login(result.user, result.token);
-          router.replace('/(tabs)/' as any);
-        } else {
-          Alert.alert('Error', result.error || 'Failed to verify OTP');
-        }
-      } else {
-        const result = await authService.verifyOTPSignup(phone, otp);
-        
-        if (result.success) {
-          setOtpVerified(true);
-        } else {
-          Alert.alert('Error', result.error || 'Failed to verify OTP');
-        }
+      // Step 1: Verify OTP with MSG91 SDK (returns accessToken)
+      const accessToken = await msg91Service.verifyOtp(otp, phone);
+      
+      // Step 2: Verify token with backend and check user status
+      const result = await authService.verifyMsg91Token(accessToken, phone);
+      
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Failed to verify token');
+        return;
       }
-    } catch (error) {
+
+      if (result.isNewUser) {
+        // New user - show profile completion form
+        setStage('profile');
+      } else if (result.user && result.token) {
+        // Existing user - login successful
+        await login(result.user, result.token);
+        router.replace('/(tabs)/' as any);
+      } else {
+        Alert.alert('Error', 'Invalid response from server');
+      }
+    } catch (error: any) {
       console.error('[OTP] Error verifying OTP:', error);
-      Alert.alert('Error', 'Failed to verify OTP');
+      Alert.alert('Error', error.message || 'Failed to verify OTP');
     } finally {
       setIsVerifying(false);
     }
@@ -113,20 +123,17 @@ export default function OTPScreen() {
     if (!phone) return;
     
     try {
-      const result = await authService.sendOTP(phone, mode);
-      if (result.success) {
-        setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
-        Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to send OTP');
-      }
-    } catch (error) {
+      await msg91Service.retryOtp(phone, null); // null = default channel (SMS)
+      setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
+      Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
+    } catch (error: any) {
       console.error('[OTP] Error resending OTP:', error);
-      Alert.alert('Error', 'Failed to send OTP');
+      Alert.alert('Error', error.message || 'Failed to send OTP');
     }
   };
 
-  if (otpVerified && (mode === 'signup' || mode === 'login')) {
+  // Stage 2: Profile Details (for new users)
+  if (stage === 'profile') {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
@@ -136,11 +143,7 @@ export default function OTPScreen() {
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.header}>
               <Text style={styles.title}>Complete Your Profile</Text>
-              <Text style={styles.subtitle}>
-                {mode === 'login' 
-                  ? 'This phone number is not registered. Please complete your profile to create an account.'
-                  : 'Tell us a bit about yourself'}
-              </Text>
+              <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
             </View>
 
             <View style={styles.form}>
@@ -198,13 +201,14 @@ export default function OTPScreen() {
     );
   }
 
+  // Stage 1: OTP Verification
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Verify OTP</Text>
           <Text style={styles.subtitle}>
-            Enter the {APP_CONFIG.OTP.LENGTH}-digit code sent to +91 {phone}
+            Enter the 4-digit code sent to +91 {phone}
           </Text>
         </View>
 
@@ -214,7 +218,7 @@ export default function OTPScreen() {
             placeholder="Enter OTP"
             placeholderTextColor={Colors.text.tertiary}
             keyboardType="number-pad"
-            maxLength={APP_CONFIG.OTP.LENGTH}
+            maxLength={4}
             value={otp}
             onChangeText={handleOTPChange}
             autoFocus={true}
@@ -223,9 +227,9 @@ export default function OTPScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, otp.length === APP_CONFIG.OTP.LENGTH && !isVerifying && styles.buttonActive]}
+          style={[styles.button, otp.length === 4 && !isVerifying && styles.buttonActive]}
           onPress={handleVerifyOTP}
-          disabled={otp.length !== APP_CONFIG.OTP.LENGTH || isVerifying}
+          disabled={otp.length !== 4 || isVerifying}
           testID="verify-button"
         >
           {isVerifying ? (
@@ -244,12 +248,6 @@ export default function OTPScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {APP_CONFIG.OTP.VOICE_OTP_ENABLED && countdown === 0 && (
-          <TouchableOpacity style={styles.voiceButton}>
-            <Text style={styles.voiceButtonText}>Get OTP via call</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -358,15 +356,6 @@ const styles = StyleSheet.create({
     color: Colors.text.tertiary,
   },
   resendLink: {
-    fontSize: 14,
-    color: Colors.brand.primary,
-    fontWeight: '600' as const,
-  },
-  voiceButton: {
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  voiceButtonText: {
     fontSize: 14,
     color: Colors.brand.primary,
     fontWeight: '600' as const,

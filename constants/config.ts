@@ -19,10 +19,17 @@ export const APP_CONFIG = {
   },
   
   OTP: {
-    LENGTH: 6,
+    LENGTH: 4, // MSG91 widget configured for 4-digit OTP
     RESEND_COOLDOWN_SECONDS: 30,
     VOICE_OTP_ENABLED: true,
     AUTO_READ_ENABLED: true,
+  },
+  
+  MSG91: {
+    // These are set via environment variables or app.json extra config
+    // Default values are provided in app.json for development
+    WIDGET_ID: process.env.EXPO_PUBLIC_MSG91_WIDGET_ID || '366165695848363336343436',
+    AUTH_TOKEN: process.env.EXPO_PUBLIC_MSG91_AUTH_TOKEN || '461446TaYcwHhy695b8b6bP1',
   },
   
   DELIVERY: {

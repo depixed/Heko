@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Linking, Platform } from "react-native";
+import { ExposeOTPVerification } from '@msg91comm/react-native-sendotp';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AddressProvider } from "@/contexts/AddressContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -18,6 +19,8 @@ import TopNav from "@/components/TopNav";
 import InstallPrompt from "@/components/InstallPrompt";
 import PWADiagnostics from "@/components/PWADiagnostics";
 import { handleDeepLink } from "@/utils/deepLinkRouter";
+import { msg91Service } from "@/lib/msg91.service";
+import { APP_CONFIG } from "@/constants/config";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,9 +28,27 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const router = useRouter();
+  const exposeOTPRef = useRef<React.ComponentRef<typeof ExposeOTPVerification>>(null);
   
   // Prefetch banners on app launch
   useBannerPrefetch();
+
+  // Initialize MSG91 service and set ref when component mounts
+  useEffect(() => {
+    // Initialize MSG91 service first
+    msg91Service.initialize().catch((error) => {
+      console.error('[RootLayout] Failed to initialize MSG91:', error);
+    });
+  }, []);
+
+  // Callback to set ref when component mounts
+  const setExposeOTPRef = (ref: React.ComponentRef<typeof ExposeOTPVerification> | null) => {
+    exposeOTPRef.current = ref;
+    if (ref) {
+      msg91Service.setRef(ref);
+      console.log('[RootLayout] MSG91 ref set via callback');
+    }
+  };
 
   // Handle deep links (initial URL and URL changes)
   useEffect(() => {
@@ -124,6 +145,19 @@ function RootLayoutNav() {
       </Stack>
       <InstallPrompt />
       <PWADiagnostics />
+      
+      {/* MSG91 ExposeOTPVerification component (hidden, used for SDK methods globally) */}
+      {/* Only render on native platforms - WebView doesn't work on web */}
+      {Platform.OS !== 'web' && (
+        <ExposeOTPVerification
+          ref={setExposeOTPRef}
+          widgetId={APP_CONFIG.MSG91.WIDGET_ID}
+          authToken={APP_CONFIG.MSG91.AUTH_TOKEN}
+          getWidgetData={(widgetData) => {
+            console.log('[RootLayout] MSG91 Widget data received:', widgetData);
+          }}
+        />
+      )}
     </>
   );
 }
