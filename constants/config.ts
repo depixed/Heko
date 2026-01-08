@@ -19,7 +19,7 @@ export const APP_CONFIG = {
   },
   
   OTP: {
-    LENGTH: 4, // MSG91 widget configured for 4-digit OTP
+    LENGTH: 6, // Fast2SMS uses 6-digit OTP (was 4 for MSG91)
     RESEND_COOLDOWN_SECONDS: 30,
     VOICE_OTP_ENABLED: true,
     AUTO_READ_ENABLED: true,

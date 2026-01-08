@@ -22,6 +22,9 @@ export default function OTPScreen() {
   const [email, setEmail] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
+  // DISABLED: MSG91 SDK initialization - Using Fast2SMS via backend API only
+  // No initialization needed for backend API flow
+  /*
   useEffect(() => {
     // MSG91 service is initialized in root layout, no need to initialize here
     // Just ensure it's ready
@@ -29,6 +32,7 @@ export default function OTPScreen() {
       console.error('[OTP] Failed to initialize MSG91:', error);
     });
   }, []);
+  */
 
   useEffect(() => {
     if (countdown > 0) {
@@ -38,14 +42,14 @@ export default function OTPScreen() {
   }, [countdown]);
 
   const handleOTPChange = (value: string) => {
-    // MSG91 widget configured for 4-digit OTP
-    const numericValue = value.replace(/[^0-9]/g, '').slice(0, 4);
+    // Fast2SMS uses 6-digit OTP (configurable in backend)
+    const numericValue = value.replace(/[^0-9]/g, '').slice(0, 6);
     setOtp(numericValue);
   };
 
   const handleVerifyOTP = async () => {
-    if (otp.length !== 4) {
-      Alert.alert('Invalid OTP', 'Please enter the complete 4-digit OTP');
+    if (otp.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter the complete 6-digit OTP');
       return;
     }
 
@@ -56,23 +60,45 @@ export default function OTPScreen() {
 
     setIsVerifying(true);
     try {
-      // Step 1: Verify OTP with MSG91 SDK (returns accessToken)
-      const accessToken = await msg91Service.verifyOtp(otp, phone);
+      // Verify OTP directly with backend (Fast2SMS or MSG91 based on backend config)
+      // Backend returns user status directly
+      const { SUPABASE_CONFIG } = await import('@/constants/supabase');
+      const FUNCTIONS_URL = `${SUPABASE_CONFIG.URL}/functions/v1`;
       
-      // Step 2: Verify token with backend and check user status
-      const result = await authService.verifyMsg91Token(accessToken, phone);
+      const response = await fetch(`${FUNCTIONS_URL}/customer-verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ 
+          phone: phone.replace(/^\+/, '').replace(/^91/, ''),
+          otp: otp
+        }),
+      });
+
+      const result = await response.json();
       
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to verify token');
+        Alert.alert('Error', result.error || 'Failed to verify OTP');
         return;
       }
 
       if (result.isNewUser) {
         // New user - show profile completion form
         setStage('profile');
-      } else if (result.user && result.token) {
+      } else if (result.user && result.sessionToken) {
         // Existing user - login successful
-        await login(result.user, result.token);
+        const user = {
+          id: result.user.id,
+          name: result.user.name,
+          phone: result.user.phone,
+          email: result.user.email || undefined,
+          referralId: result.user.referral_code,
+          referredBy: result.user.referred_by || undefined,
+          createdAt: result.user.created_at,
+        };
+        await login(user, result.sessionToken);
         router.replace('/(tabs)/' as any);
       } else {
         Alert.alert('Error', 'Invalid response from server');
@@ -123,7 +149,8 @@ export default function OTPScreen() {
     if (!phone) return;
     
     try {
-      await msg91Service.retryOtp(phone, null); // null = default channel (SMS)
+      // Resend OTP via backend
+      await msg91Service.sendOtp(phone);
       setCountdown(APP_CONFIG.OTP.RESEND_COOLDOWN_SECONDS);
       Alert.alert('OTP Sent', 'A new OTP has been sent to your mobile number');
     } catch (error: any) {
@@ -208,7 +235,7 @@ export default function OTPScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Verify OTP</Text>
           <Text style={styles.subtitle}>
-            Enter the 4-digit code sent to +91 {phone}
+            Enter the 6-digit code sent to +91 {phone}
           </Text>
         </View>
 
@@ -218,7 +245,7 @@ export default function OTPScreen() {
             placeholder="Enter OTP"
             placeholderTextColor={Colors.text.tertiary}
             keyboardType="number-pad"
-            maxLength={4}
+            maxLength={6}
             value={otp}
             onChangeText={handleOTPChange}
             autoFocus={true}
@@ -227,9 +254,9 @@ export default function OTPScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, otp.length === 4 && !isVerifying && styles.buttonActive]}
+          style={[styles.button, otp.length === 6 && !isVerifying && styles.buttonActive]}
           onPress={handleVerifyOTP}
-          disabled={otp.length !== 4 || isVerifying}
+          disabled={otp.length !== 6 || isVerifying}
           testID="verify-button"
         >
           {isVerifying ? (

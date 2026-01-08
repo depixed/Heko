@@ -87,11 +87,19 @@ class Msg91Service {
   }
 
   /**
-   * Send OTP using MSG91 SDK (with custom UI)
-   * On web, falls back to backend API
+   * Send OTP using backend API (Fast2SMS or MSG91 based on backend configuration)
+   * TEMPORARY: Always uses backend API while MSG91 DLT approval is pending
    * @param phone Phone number in any format (e.g., +919876543210, 9876543210, 919876543210)
    */
   async sendOtp(phone: string): Promise<void> {
+    console.log('[OTP Service] Using backend API (Fast2SMS) - MSG91 SDK bypassed');
+    // TEMPORARY: Always use backend API (Fast2SMS) until MSG91 DLT is approved
+    // Backend will handle provider selection via OTP_PROVIDER environment variable
+    return this.sendOtpViaBackend(phone);
+
+    // MSG91 SDK CODE (KEPT FOR FUTURE USE WHEN DLT IS APPROVED)
+    // Uncomment this block and remove the above return statement when MSG91 DLT is ready
+    /*
     // On web, use backend API since WebView doesn't work
     if (Platform.OS === 'web') {
       return this.sendOtpViaBackend(phone);
@@ -121,62 +129,48 @@ class Msg91Service {
         throw new Error(response.message || 'Failed to send OTP');
       }
 
-      // Check if the message field contains an error code or request ID
-      // MSG91 might return hex strings or error codes in message field
-      // If message looks like an error (short hex string), it might indicate an issue
-      if (response.message && response.message.length < 30 && /^[0-9a-f]+$/i.test(response.message)) {
-        console.warn('[MSG91] Response message appears to be a code/ID:', response.message);
-        // This might be a request ID or error code - log it but continue
-        // The SDK says type: 'success', so we'll trust it
-      }
-
       console.log('[MSG91] OTP sent successfully via SDK');
-      console.log('[MSG91] Response details:', {
-        type: response.type,
-        message: response.message,
-        messageLength: response.message?.length,
-        code: response.code,
-      });
     } catch (error: any) {
       console.error('[MSG91] Error sending OTP:', error);
-      console.error('[MSG91] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        refAvailable: !!this.exposeRef,
-        widgetId: this.widgetId,
-        authToken: !!this.authToken,
-      });
       throw new Error(error.message || 'Failed to send OTP');
     }
+    */
   }
 
   /**
-   * Send OTP via backend API (for web platform)
+   * Send OTP via backend API (Fast2SMS or MSG91 based on backend OTP_PROVIDER)
+   * Backend handles provider selection and OTP generation
    */
   private async sendOtpViaBackend(phone: string): Promise<void> {
     const { SUPABASE_CONFIG } = await import('@/constants/supabase');
     const FUNCTIONS_URL = `${SUPABASE_CONFIG.URL}/functions/v1`;
 
-    const formattedPhone = this.formatPhone(phone);
+    // Format phone: remove + and ensure 91 prefix
+    let formattedPhone = phone.replace(/^\+/, '');
+    if (!formattedPhone.startsWith('91')) {
+      formattedPhone = `91${formattedPhone}`;
+    }
+    // Extract 10-digit number for validation
+    const mobileNumber = formattedPhone.slice(-10);
+    
     const url = `${FUNCTIONS_URL}/customer-send-otp`;
 
     try {
-      console.log('[MSG91] Sending OTP via backend (web) to:', url);
+      console.log('[OTP] Sending OTP via backend to:', mobileNumber);
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ phone: `+${formattedPhone}` }),
+        body: JSON.stringify({ phone: mobileNumber }),
       });
 
       // Check if response is ok before parsing
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[MSG91] Backend error response:', {
+        console.error('[OTP] Backend error response:', {
           status: response.status,
           statusText: response.statusText,
           body: errorText,
@@ -199,7 +193,7 @@ class Msg91Service {
         const responseText = await response.text();
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('[MSG91] Failed to parse response:', parseError);
+        console.error('[OTP] Failed to parse response:', parseError);
         throw new Error('Invalid response from server');
       }
 
@@ -207,7 +201,8 @@ class Msg91Service {
         throw new Error(data.error || 'Failed to send OTP');
       }
 
-      console.log('[MSG91] OTP sent successfully via backend (web)');
+      const provider = data.provider || 'Unknown';
+      console.log(`[OTP] OTP sent successfully via ${provider}`);
     } catch (error: any) {
       // Handle network errors specifically
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -221,13 +216,23 @@ class Msg91Service {
   }
 
   /**
-   * Verify OTP using MSG91 SDK (with custom UI)
-   * On web, falls back to backend API
-   * @param otp 4-digit OTP code (as configured in MSG91 widget)
-   * @param phone Phone number (required for web fallback)
-   * @returns Access token from MSG91 (to be verified with backend)
+   * Verify OTP using backend API (Fast2SMS or MSG91 based on backend configuration)
+   * TEMPORARY: Always uses backend API while MSG91 DLT approval is pending
+   * @param otp 6-digit OTP code (Fast2SMS default) or 4-digit (MSG91)
+   * @param phone Phone number (required)
+   * @returns Verification result indicator
    */
   async verifyOtp(otp: string | number, phone?: string): Promise<string> {
+    console.log('[OTP Service] Verifying OTP via backend API (Fast2SMS) - MSG91 SDK bypassed');
+    // TEMPORARY: Always use backend API (Fast2SMS) until MSG91 DLT is approved
+    if (!phone) {
+      throw new Error('Phone number is required for OTP verification');
+    }
+    return this.verifyOtpViaBackend(otp, phone);
+
+    // MSG91 SDK CODE (KEPT FOR FUTURE USE WHEN DLT IS APPROVED)
+    // Uncomment this block and remove the above return statement when MSG91 DLT is ready
+    /*
     // On web, use backend API since WebView doesn't work
     if (Platform.OS === 'web') {
       if (!phone) {
@@ -251,7 +256,7 @@ class Msg91Service {
         throw new Error('Invalid OTP format');
       }
 
-      console.log('[MSG91] Verifying OTP:', otpNumber);
+      console.log('[MSG91] Verifying OTP via SDK');
 
       const response = await this.exposeRef.verifyOtp(otpNumber);
 
@@ -259,76 +264,39 @@ class Msg91Service {
         throw new Error(response.message || 'Invalid or expired OTP');
       }
 
-      // MSG91 SDK response format: { type: 'success', message: string, code?: string }
-      // The message might contain accessToken, request ID, or session ID
-      // Try to parse message as JSON first
-      let accessToken: string | null = null;
-      
-      try {
-        const parsedMessage = JSON.parse(response.message);
-        accessToken = parsedMessage.accessToken || parsedMessage.token || parsedMessage.data?.accessToken || parsedMessage.sessionId;
-      } catch {
-        // If message is not JSON, it might be:
-        // 1. A hex string (request ID or session ID) - use it as accessToken
-        // 2. The accessToken itself
-        // 3. An error code (but type is 'success', so unlikely)
-        if (response.message) {
-          // Use the message as accessToken/sessionId
-          // MSG91 widget might return request ID or session ID in message field
-          accessToken = response.message;
-          console.log('[MSG91] Using message field as accessToken/sessionId:', response.message);
-        }
-      }
-      
-      // Also check code field
-      if (!accessToken && response.code) {
-        accessToken = response.code;
-      }
-      
-      // Check for accessToken in response object directly
-      if (!accessToken && (response as any).accessToken) {
-        accessToken = (response as any).accessToken;
-      }
-      
-      if (!accessToken) {
-        // If no accessToken, log the response for debugging
-        console.warn('[MSG91] No accessToken in response:', JSON.stringify(response));
-        // MSG91 widget might not return accessToken in verifyOtp response
-        // In this case, we'll use a placeholder and let backend verify using phone + OTP
-        // OR we can use the message field as session identifier
-        throw new Error('MSG91 verification succeeded but no access token received. The widget may need to be configured to return access tokens.');
-      }
-
-      console.log('[MSG91] OTP verified, access token/session ID received:', accessToken.substring(0, 20) + '...');
-      return accessToken;
+      console.log('[MSG91] OTP verified via SDK');
+      return response.message || 'verified';
     } catch (error: any) {
       console.error('[MSG91] Error verifying OTP:', error);
       throw new Error(error.message || 'Invalid or expired OTP');
     }
+    */
   }
 
   /**
-   * Verify OTP via backend API (for web platform)
+   * Verify OTP via backend API (Fast2SMS or MSG91 based on backend OTP_PROVIDER)
+   * Backend handles verification against stored OTP or MSG91 API
    */
   private async verifyOtpViaBackend(otp: string | number, phone: string): Promise<string> {
     const { SUPABASE_CONFIG } = await import('@/constants/supabase');
     const FUNCTIONS_URL = `${SUPABASE_CONFIG.URL}/functions/v1`;
 
-    const formattedPhone = this.formatPhone(phone);
+    // Format phone: remove + and ensure it's just 10 digits
+    let formattedPhone = phone.replace(/^\+/, '').replace(/^91/, '');
+    
     const url = `${FUNCTIONS_URL}/customer-verify-otp`;
 
     try {
-      console.log('[MSG91] Verifying OTP via backend (web) to:', url);
+      console.log('[OTP] Verifying OTP via backend');
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
           'apikey': SUPABASE_CONFIG.PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ 
-          phone: `+${formattedPhone}`,
+          phone: formattedPhone,
           otp: otp.toString()
         }),
       });
@@ -336,7 +304,7 @@ class Msg91Service {
       // Check if response is ok before parsing
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[MSG91] Backend verification error:', {
+        console.error('[OTP] Backend verification error:', {
           status: response.status,
           statusText: response.statusText,
           body: errorText,
@@ -358,7 +326,7 @@ class Msg91Service {
         const responseText = await response.text();
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('[MSG91] Failed to parse verification response:', parseError);
+        console.error('[OTP] Failed to parse verification response:', parseError);
         throw new Error('Invalid response from server');
       }
 
@@ -366,14 +334,13 @@ class Msg91Service {
         throw new Error(data.error || 'Invalid or expired OTP');
       }
 
-      // For web, we don't get accessToken from backend, so return a placeholder
-      // The backend will handle verification and return user status
-      console.log('[MSG91] OTP verified via backend (web)');
-      return 'verified'; // Placeholder - backend handles verification
+      const provider = data.provider || 'Unknown';
+      console.log(`[OTP] OTP verified successfully via ${provider}`);
+      return 'verified'; // Return indicator - actual user data is in the response
     } catch (error: any) {
       // Handle network errors specifically
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        console.error('[MSG91] Network error - function may not be deployed:', url);
+        console.error('[OTP] Network error - function may not be deployed:', url);
         throw new Error('Unable to connect to server. Please ensure the edge function is deployed and check your internet connection.');
       }
       

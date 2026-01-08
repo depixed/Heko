@@ -28,12 +28,15 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const router = useRouter();
-  const exposeOTPRef = useRef<React.ComponentRef<typeof ExposeOTPVerification>>(null);
+  // DISABLED: MSG91 SDK ref - Using Fast2SMS via backend API
+  // const exposeOTPRef = useRef<React.ComponentRef<typeof ExposeOTPVerification>>(null);
   
   // Prefetch banners on app launch
   useBannerPrefetch();
 
-  // Initialize MSG91 service and set ref when component mounts
+  // DISABLED: MSG91 SDK initialization - Using Fast2SMS via backend API
+  // Uncomment when switching back to MSG91 after DLT approval
+  /*
   useEffect(() => {
     // Initialize MSG91 service first
     msg91Service.initialize().catch((error) => {
@@ -49,6 +52,7 @@ function RootLayoutNav() {
       console.log('[RootLayout] MSG91 ref set via callback');
     }
   };
+  */
 
   // Handle deep links (initial URL and URL changes)
   useEffect(() => {
@@ -147,7 +151,9 @@ function RootLayoutNav() {
       <PWADiagnostics />
       
       {/* MSG91 ExposeOTPVerification component (hidden, used for SDK methods globally) */}
-      {/* Only render on native platforms - WebView doesn't work on web */}
+      {/* DISABLED: Using Fast2SMS via backend API - MSG91 SDK not needed */}
+      {/* Uncomment when switching back to MSG91 after DLT approval */}
+      {/*
       {Platform.OS !== 'web' && (
         <ExposeOTPVerification
           ref={setExposeOTPRef}
@@ -158,6 +164,7 @@ function RootLayoutNav() {
           }}
         />
       )}
+      */}
     </>
   );
 }
